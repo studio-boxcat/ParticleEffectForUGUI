@@ -415,8 +415,8 @@ namespace Coffee.UIExtensions
 
         static void CollectParticles(UIParticle target, List<ParticleSystem> buffer)
         {
-            target.GetComponentsInChildren(buffer);
-            buffer.RemoveAll(x => x.GetComponentInParent<UIParticle>() != target);
+            target.GetComponentsInChildren(true, buffer);
+            buffer.RemoveAll(x => x.GetComponentInParent<UIParticle>(true) != target);
             buffer.SortForRendering(target.transform);
         }
 
