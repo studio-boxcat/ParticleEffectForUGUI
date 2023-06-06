@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
+using Sirenix.OdinInspector;
 
 [assembly: InternalsVisibleTo("Coffee.UIParticle.Editor")]
 
@@ -22,11 +23,9 @@ namespace Coffee.UIExtensions
     [RequireComponent(typeof(CanvasRenderer))]
     public class UIParticle : MaskableGraphic
 #if UNITY_EDITOR
-        , ISerializationCallbackReceiver
+        , ISelfValidator
 #endif
     {
-        [HideInInspector] [SerializeField] internal bool m_IsTrail = false;
-
         [Tooltip("Ignore canvas scaler")] [SerializeField] [FormerlySerializedAs("m_IgnoreParent")]
         bool m_IgnoreCanvasScaler = true;
 
@@ -42,14 +41,10 @@ namespace Coffee.UIExtensions
         [Tooltip("Particles")] [SerializeField]
         private List<ParticleSystem> m_Particles = new List<ParticleSystem>();
 
-        [Tooltip("Shrink rendering by material on refresh.\nNOTE: Performance will be improved, but in some cases the rendering is not correct.")] [SerializeField]
-        bool m_ShrinkByMaterial = false;
-
 #if !SERIALIZE_FIELD_MASKABLE
         [SerializeField] private bool m_Maskable = true;
 #endif
 
-        private bool _shouldBeRemoved;
         private DrivenRectTransformTracker _tracker;
         private Mesh _bakedMesh;
         private readonly List<Material> _modifiedMaterials = new List<Material>();
@@ -83,17 +78,6 @@ namespace Coffee.UIExtensions
                 _tracker.Clear();
                 if (isActiveAndEnabled && m_IgnoreCanvasScaler)
                     _tracker.Add(this, rectTransform, DrivenTransformProperties.Scale);
-            }
-        }
-
-        public bool shrinkByMaterial
-        {
-            get { return m_ShrinkByMaterial; }
-            set
-            {
-                if (m_ShrinkByMaterial == value) return;
-                m_ShrinkByMaterial = value;
-                RefreshParticles();
             }
         }
 
@@ -181,67 +165,6 @@ namespace Coffee.UIExtensions
         public void Clear()
         {
             particles.Exec(p => p.Clear());
-        }
-
-        public void SetParticleSystemInstance(GameObject instance)
-        {
-            SetParticleSystemInstance(instance, true);
-        }
-
-        public void SetParticleSystemInstance(GameObject instance, bool destroyOldParticles)
-        {
-            if (!instance) return;
-
-            foreach (Transform child in transform)
-            {
-                var go = child.gameObject;
-                go.SetActive(false);
-                if (!destroyOldParticles) continue;
-
-#if UNITY_EDITOR
-                if (!Application.isPlaying)
-                    DestroyImmediate(go);
-                else
-#endif
-                    Destroy(go);
-            }
-
-            var tr = instance.transform;
-            tr.SetParent(transform, false);
-            tr.localPosition = Vector3.zero;
-
-            RefreshParticles(instance);
-        }
-
-        public void SetParticleSystemPrefab(GameObject prefab)
-        {
-            if (!prefab) return;
-
-            SetParticleSystemInstance(Instantiate(prefab.gameObject), true);
-        }
-
-        public void RefreshParticles()
-        {
-            RefreshParticles(gameObject);
-        }
-
-        public void RefreshParticles(GameObject root)
-        {
-            if (!root) return;
-            root.GetComponentsInChildren(particles);
-            particles.RemoveAll(x => x.GetComponentInParent<UIParticle>() != this);
-
-            foreach (var ps in particles)
-            {
-                var tsa = ps.textureSheetAnimation;
-                if (tsa.mode == ParticleSystemAnimationMode.Sprites && tsa.uvChannelMask == (UVChannelFlags) 0)
-                    tsa.uvChannelMask = UVChannelFlags.UV0;
-            }
-
-            particles.Exec(p => p.GetComponent<ParticleSystemRenderer>().enabled = !enabled);
-            particles.SortForRendering(transform, m_ShrinkByMaterial);
-
-            SetMaterialDirty();
         }
 
         protected override void UpdateMaterial()
@@ -412,7 +335,6 @@ namespace Coffee.UIExtensions
             activeMeshIndices.Clear();
 
             UIParticleUpdater.Register(this);
-            particles.Exec(p => p.GetComponent<ParticleSystemRenderer>().enabled = false);
 
             if (isActiveAndEnabled && m_IgnoreCanvasScaler)
             {
@@ -423,8 +345,6 @@ namespace Coffee.UIExtensions
             _bakedMesh = MeshPool.Rent();
 
             base.OnEnable();
-
-            InitializeIfNeeded();
         }
 
         private new IEnumerator Start()
@@ -452,8 +372,6 @@ namespace Coffee.UIExtensions
         protected override void OnDisable()
         {
             UIParticleUpdater.Unregister(this);
-            if (!_shouldBeRemoved)
-                particles.Exec(p => p.GetComponent<ParticleSystemRenderer>().enabled = true);
             _tracker.Clear();
 
             // Destroy object.
@@ -478,31 +396,6 @@ namespace Coffee.UIExtensions
         {
         }
 
-        private void InitializeIfNeeded()
-        {
-            if (enabled && m_IsTrail)
-            {
-                UnityEngine.Debug.LogWarningFormat(this, "[UIParticle] The UIParticle component should be removed: {0}\nReason: UIParticle for trails is no longer needed.", name);
-                gameObject.hideFlags = HideFlags.None;
-                _shouldBeRemoved = true;
-                enabled = false;
-                return;
-            }
-
-            if (!this || particles.AnyFast()) return;
-
-            // refresh.
-#if UNITY_EDITOR
-            if (!Application.isPlaying)
-                UnityEditor.EditorApplication.delayCall += () =>
-                {
-                    if (this) RefreshParticles();
-                };
-            else
-#endif
-                RefreshParticles();
-        }
-
 #if UNITY_EDITOR
         protected override void OnValidate()
         {
@@ -515,24 +408,46 @@ namespace Coffee.UIExtensions
 #endif
         }
 
-        void ISerializationCallbackReceiver.OnBeforeSerialize()
+        public void Editor_CollectParticles()
         {
-            if (Application.isPlaying) return;
-            InitializeIfNeeded();
+            CollectParticles(this, particles);
         }
 
-        void ISerializationCallbackReceiver.OnAfterDeserialize()
+        static void CollectParticles(UIParticle target, List<ParticleSystem> buffer)
         {
-            if (m_Scale3D == Vector3.zero)
+            target.GetComponentsInChildren(buffer);
+            buffer.RemoveAll(x => x.GetComponentInParent<UIParticle>() != target);
+            buffer.SortForRendering(target.transform);
+        }
+
+        static readonly List<ParticleSystem> _particleSystemBuf = new();
+
+        void ISelfValidator.Validate(SelfValidationResult result)
+        {
+            CollectParticles(this, _particleSystemBuf);
+
+            if (_particleSystemBuf.Count != particles.Count)
             {
-                scale = m_Scale;
+                result.AddError($"The number of particles is different. ({particles.Count} != {_particleSystemBuf.Count})");
+                return;
             }
 
-            UnityEditor.EditorApplication.delayCall += () =>
+            for (var i = 0; i < particles.Count; i++)
             {
-                if (Application.isPlaying || !this) return;
-                InitializeIfNeeded();
-            };
+                if (particles[i] == _particleSystemBuf[i]) continue;
+                result.AddError($"The particle is different. ({particles[i].name} != {_particleSystemBuf[i].name})");
+                return;
+            }
+
+            foreach (var ps in _particleSystemBuf)
+            {
+                var tsa = ps.textureSheetAnimation;
+                if (tsa.mode == ParticleSystemAnimationMode.Sprites && tsa.uvChannelMask == (UVChannelFlags) 0)
+                {
+                    result.AddError($"The uvChannelMask of TextureSheetAnimationModule is not set to UV0. ({ps.name})");
+                    return;
+                }
+            }
         }
 #endif
     }

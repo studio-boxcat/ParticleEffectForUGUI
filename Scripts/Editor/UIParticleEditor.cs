@@ -27,7 +27,6 @@ namespace Coffee.UIExtensions
         private SerializedProperty _spScale;
         private SerializedProperty _spIgnoreCanvasScaler;
         private SerializedProperty _spAnimatableProperties;
-        private SerializedProperty _spShrinkByMaterial;
 
         private ReorderableList _ro;
         static private bool _xyzMode;
@@ -56,7 +55,6 @@ namespace Coffee.UIExtensions
             _spScale = serializedObject.FindProperty("m_Scale3D");
             _spIgnoreCanvasScaler = serializedObject.FindProperty("m_IgnoreCanvasScaler");
             _spAnimatableProperties = serializedObject.FindProperty("m_AnimatableProperties");
-            _spShrinkByMaterial = serializedObject.FindProperty("m_ShrinkByMaterial");
 
             var sp = serializedObject.FindProperty("m_Particles");
             _ro = new ReorderableList(sp.serializedObject, sp, true, true, true, true);
@@ -96,7 +94,8 @@ namespace Coffee.UIExtensions
                 {
                     foreach (UIParticle t in targets)
                     {
-                        t.RefreshParticles();
+                        t.Editor_CollectParticles();
+                        EditorUtility.SetDirty(t);
                     }
                 }
             };
@@ -161,9 +160,6 @@ namespace Coffee.UIExtensions
                     t.SetMaterialDirty();
             }
 
-            // ShrinkByMaterial
-            EditorGUILayout.PropertyField(_spShrinkByMaterial);
-
             // Target ParticleSystems.
             _ro.DoLayoutList();
 
@@ -187,12 +183,6 @@ namespace Coffee.UIExtensions
             }
 
             // Does the shader support UI masks?
-
-            if (FixButton(current.m_IsTrail, "This UIParticle component should be removed. The UIParticle for trails is no longer needed."))
-            {
-                DestroyUIParticle(current);
-                return;
-            }
 
             // #203: When using linear color space, the particle colors are not output correctly.
             // To fix, set 'Apply Active Color Space' in renderer module to false.

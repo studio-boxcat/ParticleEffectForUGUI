@@ -207,7 +207,7 @@ namespace Coffee.UIParticleExtensions
 
     internal static class ParticleSystemExtensions
     {
-        public static void SortForRendering(this List<ParticleSystem> self, Transform transform, bool sortByMaterial)
+        public static void SortForRendering(this List<ParticleSystem> self, Transform transform)
         {
             self.Sort((a, b) =>
             {
@@ -221,9 +221,6 @@ namespace Coffee.UIParticleExtensions
                 if (!aMat && !bMat) return 0;
                 if (!aMat) return -1;
                 if (!bMat) return 1;
-
-                if (sortByMaterial)
-                    return aMat.GetInstanceID() - bMat.GetInstanceID();
 
                 if (aMat.renderQueue != bMat.renderQueue)
                     return aMat.renderQueue - bMat.renderQueue;
