@@ -55,7 +55,7 @@ namespace Coffee.UIExtensions
         private static MaterialPropertyBlock s_Mpb;
         private static readonly List<Material> s_PrevMaskMaterials = new List<Material>();
         private static readonly List<Material> s_PrevModifiedMaterials = new List<Material>();
-        private static readonly List<Component> s_Components = new List<Component>();
+        private static readonly List<IMaterialModifier> s_Components = new List<IMaterialModifier>();
         private static readonly List<ParticleSystem> s_ParticleSystems = new List<ParticleSystem>();
 
 
@@ -195,7 +195,7 @@ namespace Coffee.UIExtensions
             }
 
             //
-            GetComponents(typeof(IMaterialModifier), s_Components);
+            GetComponents(s_Components);
             var materialCount = Mathf.Min(8, count);
             canvasRenderer.materialCount = materialCount;
             var j = 0;
@@ -215,7 +215,7 @@ namespace Coffee.UIExtensions
                 {
                     var mat = GetModifiedMaterial(s_TempMaterials[0], ps.GetTextureForSprite());
                     for (var k = 1; k < s_Components.Count; k++)
-                        mat = (s_Components[k] as IMaterialModifier).GetModifiedMaterial(mat);
+                        mat = s_Components[k].GetModifiedMaterial(mat);
                     canvasRenderer.SetMaterial(mat, j);
                     UpdateMaterialProperties(r, j);
                     j++;
@@ -228,7 +228,7 @@ namespace Coffee.UIExtensions
                 {
                     var mat = GetModifiedMaterial(s_TempMaterials[1], null);
                     for (var k = 1; k < s_Components.Count; k++)
-                        mat = (s_Components[k] as IMaterialModifier).GetModifiedMaterial(mat);
+                        mat = s_Components[k].GetModifiedMaterial(mat);
                     canvasRenderer.SetMaterial(mat, j++);
                 }
             }
