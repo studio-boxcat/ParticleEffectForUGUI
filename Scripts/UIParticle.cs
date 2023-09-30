@@ -1,6 +1,3 @@
-#if UNITY_2019_3_11 || UNITY_2019_3_12 || UNITY_2019_3_13 || UNITY_2019_3_14 || UNITY_2019_3_15 || UNITY_2019_4_OR_NEWER
-#define SERIALIZE_FIELD_MASKABLE
-#endif
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -35,15 +32,8 @@ namespace Coffee.UIExtensions
         [Tooltip("Particle effect scale")] [SerializeField]
         private Vector3 m_Scale3D;
 
-        [Tooltip("Animatable material properties. If you want to change the material properties of the ParticleSystem in Animation, enable it.")] [SerializeField]
-        internal AnimatableProperty[] m_AnimatableProperties = new AnimatableProperty[0];
-
         [Tooltip("Particles")] [SerializeField]
         private List<ParticleSystem> m_Particles = new List<ParticleSystem>();
-
-#if !SERIALIZE_FIELD_MASKABLE
-        [SerializeField] private bool m_Maskable = true;
-#endif
 
         private DrivenRectTransformTracker _tracker;
         private Mesh _bakedMesh;
@@ -52,7 +42,6 @@ namespace Coffee.UIExtensions
         private readonly List<bool> _activeMeshIndices = new List<bool>();
         private Vector3 _cachedPosition;
         private static readonly List<Material> s_TempMaterials = new List<Material>(2);
-        private static MaterialPropertyBlock s_Mpb;
         private static readonly List<Material> s_PrevMaskMaterials = new List<Material>();
         private static readonly List<Material> s_PrevModifiedMaterials = new List<Material>();
         private static readonly List<IMaterialModifier> s_Components = new List<IMaterialModifier>();
@@ -217,7 +206,6 @@ namespace Coffee.UIExtensions
                     for (var k = 1; k < s_Components.Count; k++)
                         mat = s_Components[k].GetModifiedMaterial(mat);
                     canvasRenderer.SetMaterial(mat, j);
-                    UpdateMaterialProperties(r, j);
                     j++;
                 }
 
@@ -269,59 +257,12 @@ namespace Coffee.UIExtensions
                 _maskMaterials.Add(baseMaterial);
             }
 
-            if (texture == null && m_AnimatableProperties.Length == 0) return baseMaterial;
+            if (texture == null) return baseMaterial;
 
-            var id = m_AnimatableProperties.Length == 0 ? 0 : GetInstanceID();
-            baseMaterial = ModifiedMaterial.Add(baseMaterial, texture, id);
+            baseMaterial = ModifiedMaterial.Add(baseMaterial, texture, 0);
             _modifiedMaterials.Add(baseMaterial);
 
             return baseMaterial;
-        }
-
-        internal void UpdateMaterialProperties()
-        {
-            if (m_AnimatableProperties.Length == 0) return;
-
-            //
-            var count = activeMeshIndices.CountFast();
-            var materialCount = Mathf.Max(8, count);
-            canvasRenderer.materialCount = materialCount;
-            var j = 0;
-            for (var i = 0; i < particles.Count; i++)
-            {
-                if (materialCount <= j) break;
-                var ps = particles[i];
-                if (!ps) continue;
-
-                var r = ps.GetComponent<ParticleSystemRenderer>();
-                r.GetSharedMaterials(s_TempMaterials);
-
-                // Main
-                if (activeMeshIndices[i * 2] && 0 < s_TempMaterials.Count)
-                {
-                    UpdateMaterialProperties(r, j);
-                    j++;
-                }
-            }
-        }
-
-        internal void UpdateMaterialProperties(Renderer r, int index)
-        {
-            if (m_AnimatableProperties.Length == 0 || canvasRenderer.materialCount <= index) return;
-
-            r.GetPropertyBlock(s_Mpb ?? (s_Mpb = new MaterialPropertyBlock()));
-            if (s_Mpb.isEmpty) return;
-
-            // #41: Copy the value from MaterialPropertyBlock to CanvasRenderer
-            var mat = canvasRenderer.GetMaterial(index);
-            if (!mat) return;
-
-            foreach (var ap in m_AnimatableProperties)
-            {
-                ap.UpdateMaterialProperties(mat, s_Mpb);
-            }
-
-            s_Mpb.Clear();
         }
 
         /// <summary>
@@ -329,9 +270,6 @@ namespace Coffee.UIExtensions
         /// </summary>
         protected override void OnEnable()
         {
-#if !SERIALIZE_FIELD_MASKABLE
-            maskable = m_Maskable;
-#endif
             activeMeshIndices.Clear();
 
             UIParticleUpdater.Register(this);
@@ -403,9 +341,6 @@ namespace Coffee.UIExtensions
             SetVerticesDirty();
             m_ShouldRecalculateStencil = true;
             RecalculateClipping();
-#if !SERIALIZE_FIELD_MASKABLE
-            maskable = m_Maskable;
-#endif
         }
 
         public void Editor_CollectParticles()
@@ -449,6 +384,11 @@ namespace Coffee.UIExtensions
                 }
             }
         }
+
+        protected override bool m_Material_ShowIf() => false;
+        protected override bool m_Color_ShowIf() => false;
+        protected override bool m_RaycastTarget_ShowIf() => false;
+        protected override bool m_RaycastPadding_ShowIf() => false;
 #endif
     }
 }

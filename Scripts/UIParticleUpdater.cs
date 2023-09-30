@@ -84,10 +84,6 @@ namespace Coffee.UIExtensions
             Profiler.BeginSample("[UIParticle] Set mesh to CanvasRenderer");
             particle.canvasRenderer.SetMesh(particle.bakedMesh);
             Profiler.EndSample();
-
-            Profiler.BeginSample("[UIParticle] Update Animatable Material Properties");
-            particle.UpdateMaterialProperties();
-            Profiler.EndSample();
         }
 
         private static void ModifyScale(UIParticle particle)
