@@ -23,6 +23,7 @@ namespace Coffee.UIExtensions
 #endif
     {
         [Tooltip("Particles")] [SerializeField]
+        [ListDrawerSettings(IsReadOnly = true), CustomContextMenu("Collect", "Editor_CollectParticles")]
         private List<ParticleSystem> m_Particles = new List<ParticleSystem>();
 
         private DrivenRectTransformTracker _tracker;
@@ -286,8 +287,14 @@ namespace Coffee.UIExtensions
                 return;
             }
 
-            foreach (var ps in _particleSystemBuf)
+            foreach (var ps in particles)
             {
+                if (ps.TryGetComponent<ParticleSystemRenderer>(out var renderer) && renderer.enabled)
+                {
+                    result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
+                    return;
+                }
+
                 var tsa = ps.textureSheetAnimation;
                 if (tsa.mode == ParticleSystemAnimationMode.Sprites && tsa.uvChannelMask == (UVChannelFlags) 0)
                 {
