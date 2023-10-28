@@ -120,11 +120,6 @@ namespace Coffee.UIExtensions
                              * Matrix4x4.Scale(root.lossyScale).inverse;
 
             // Cache position
-            var position = particle.transform.position;
-            var diff = Vector3.zero;
-
-            particle.cachedPosition = position;
-
             for (var i = 0; i < particle.particles.Count; i++)
             {
                 Profiler.BeginSample("[UIParticle] Bake Mesh > Push index");

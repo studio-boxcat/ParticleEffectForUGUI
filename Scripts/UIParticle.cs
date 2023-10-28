@@ -67,8 +67,6 @@ namespace Coffee.UIExtensions
             }
         }
 
-        internal Vector3 cachedPosition { get; set; }
-
         public void Play() => particles.Exec(p => p.Play());
         public void Pause() => particles.Exec(p => p.Pause());
         public void Stop() => particles.Exec(p => p.Stop());
