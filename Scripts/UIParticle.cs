@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using Coffee.UIParticleExtensions;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 using UnityEngine.UI;
 using Sirenix.OdinInspector;
 
@@ -23,15 +22,6 @@ namespace Coffee.UIExtensions
         , ISelfValidator
 #endif
     {
-        [Tooltip("Ignore canvas scaler")] [SerializeField] [FormerlySerializedAs("m_IgnoreParent")]
-        bool m_IgnoreCanvasScaler = true;
-
-        [Tooltip("Particle effect scale")] [SerializeField]
-        float m_Scale = 100;
-
-        [Tooltip("Particle effect scale")] [SerializeField]
-        private Vector3 m_Scale3D;
-
         [Tooltip("Particles")] [SerializeField]
         private List<ParticleSystem> m_Particles = new List<ParticleSystem>();
 
@@ -40,7 +30,6 @@ namespace Coffee.UIExtensions
         private readonly List<Material> _modifiedMaterials = new List<Material>();
         private readonly List<Material> _maskMaterials = new List<Material>();
         private readonly List<bool> _activeMeshIndices = new List<bool>();
-        private Vector3 _cachedPosition;
         private static readonly List<Material> s_TempMaterials = new List<Material>(2);
         private static readonly List<Material> s_PrevMaskMaterials = new List<Material>();
         private static readonly List<Material> s_PrevModifiedMaterials = new List<Material>();
@@ -53,74 +42,21 @@ namespace Coffee.UIExtensions
         /// </summary>
         public override bool raycastTarget
         {
-            get { return false; }
+            get => false;
             set { }
         }
 
-        public bool ignoreCanvasScaler
-        {
-            get { return m_IgnoreCanvasScaler; }
-            set
-            {
-                // if (m_IgnoreCanvasScaler == value) return;
-                m_IgnoreCanvasScaler = value;
-                _tracker.Clear();
-                if (isActiveAndEnabled && m_IgnoreCanvasScaler)
-                    _tracker.Add(this, rectTransform, DrivenTransformProperties.Scale);
-            }
-        }
+        internal Mesh bakedMesh => _bakedMesh;
 
-        /// <summary>
-        /// Particle effect scale.
-        /// </summary>
-        public float scale
-        {
-            get { return m_Scale3D.x; }
-            set
-            {
-                m_Scale = Mathf.Max(0.001f, value);
-                m_Scale3D = new Vector3(m_Scale, m_Scale, m_Scale);
-            }
-        }
+        public List<ParticleSystem> particles => m_Particles;
 
-        /// <summary>
-        /// Particle effect scale.
-        /// </summary>
-        public Vector3 scale3D
-        {
-            get { return m_Scale3D; }
-            set
-            {
-                if (m_Scale3D == value) return;
-                m_Scale3D.x = Mathf.Max(0.001f, value.x);
-                m_Scale3D.y = Mathf.Max(0.001f, value.y);
-                m_Scale3D.z = Mathf.Max(0.001f, value.z);
-            }
-        }
+        public IEnumerable<Material> materials => _modifiedMaterials;
 
-        internal Mesh bakedMesh
-        {
-            get { return _bakedMesh; }
-        }
-
-        public List<ParticleSystem> particles
-        {
-            get { return m_Particles; }
-        }
-
-        public IEnumerable<Material> materials
-        {
-            get { return _modifiedMaterials; }
-        }
-
-        public override Material materialForRendering
-        {
-            get { return canvasRenderer.GetMaterial(0); }
-        }
+        public override Material materialForRendering => canvasRenderer.GetMaterial(0);
 
         public List<bool> activeMeshIndices
         {
-            get { return _activeMeshIndices; }
+            get => _activeMeshIndices;
             set
             {
                 if (_activeMeshIndices.SequenceEqualFast(value)) return;
@@ -130,31 +66,12 @@ namespace Coffee.UIExtensions
             }
         }
 
-        internal Vector3 cachedPosition
-        {
-            get { return _cachedPosition; }
-            set { _cachedPosition = value; }
-        }
+        internal Vector3 cachedPosition { get; set; }
 
-        public void Play()
-        {
-            particles.Exec(p => p.Play());
-        }
-
-        public void Pause()
-        {
-            particles.Exec(p => p.Pause());
-        }
-
-        public void Stop()
-        {
-            particles.Exec(p => p.Stop());
-        }
-
-        public void Clear()
-        {
-            particles.Exec(p => p.Clear());
-        }
+        public void Play() => particles.Exec(p => p.Play());
+        public void Pause() => particles.Exec(p => p.Pause());
+        public void Stop() => particles.Exec(p => p.Stop());
+        public void Clear() => particles.Exec(p => p.Clear());
 
         protected override void UpdateMaterial()
         {
@@ -273,11 +190,6 @@ namespace Coffee.UIExtensions
             activeMeshIndices.Clear();
 
             UIParticleUpdater.Register(this);
-
-            if (isActiveAndEnabled && m_IgnoreCanvasScaler)
-            {
-                _tracker.Add(this, rectTransform, DrivenTransformProperties.Scale);
-            }
 
             // Create objects.
             _bakedMesh = MeshPool.Rent();

@@ -8,9 +8,8 @@ namespace Coffee.UIExtensions
 {
     internal static class UIParticleUpdater
     {
-        static readonly List<UIParticle> s_ActiveParticles = new List<UIParticle>();
+        static readonly List<UIParticle> s_ActiveParticles = new();
         static MaterialPropertyBlock s_Mpb;
-        static ParticleSystem.Particle[] s_Particles = new ParticleSystem.Particle[2048];
         private static int frameCount = 0;
 
 
@@ -66,10 +65,6 @@ namespace Coffee.UIExtensions
         {
             if (!particle || !particle.bakedMesh || !particle.canvas || !particle.canvasRenderer) return;
 
-            Profiler.BeginSample("[UIParticle] Modify scale");
-            ModifyScale(particle);
-            Profiler.EndSample();
-
             Profiler.BeginSample("[UIParticle] Bake mesh");
             BakeMesh(particle);
             Profiler.EndSample();
@@ -84,24 +79,6 @@ namespace Coffee.UIExtensions
             Profiler.BeginSample("[UIParticle] Set mesh to CanvasRenderer");
             particle.canvasRenderer.SetMesh(particle.bakedMesh);
             Profiler.EndSample();
-        }
-
-        private static void ModifyScale(UIParticle particle)
-        {
-            if (!particle.ignoreCanvasScaler || !particle.canvas) return;
-
-            // Ignore Canvas scaling.
-            var s = particle.canvas.rootCanvas.transform.localScale;
-            var modifiedScale = new Vector3(
-                Mathf.Approximately(s.x, 0) ? 1 : 1 / s.x,
-                Mathf.Approximately(s.y, 0) ? 1 : 1 / s.y,
-                Mathf.Approximately(s.z, 0) ? 1 : 1 / s.z);
-
-            // Scale is already modified.
-            var transform = particle.transform;
-            if (Mathf.Approximately((transform.localScale - modifiedScale).sqrMagnitude, 0)) return;
-
-            transform.localScale = modifiedScale;
         }
 
         private static Matrix4x4 GetScaledMatrix(ParticleSystem particle)
@@ -141,22 +118,12 @@ namespace Coffee.UIExtensions
             var root = particle.transform;
             var rootMatrix = Matrix4x4.Rotate(root.rotation).inverse
                              * Matrix4x4.Scale(root.lossyScale).inverse;
-            var scale = particle.ignoreCanvasScaler
-                ? Vector3.Scale(particle.canvas.rootCanvas.transform.localScale, particle.scale3D)
-                : particle.scale3D;
-            var scaleMatrix = Matrix4x4.Scale(scale);
 
             // Cache position
             var position = particle.transform.position;
-            var diff = position - particle.cachedPosition;
-            diff.x *= 1f - 1f / Mathf.Max(0.001f, scale.x);
-            diff.y *= 1f - 1f / Mathf.Max(0.001f, scale.y);
-            diff.z *= 1f - 1f / Mathf.Max(0.001f, scale.z);
+            var diff = Vector3.zero;
 
             particle.cachedPosition = position;
-
-            if (particle.activeMeshIndices.CountFast() == 0)
-                diff = Vector3.zero;
 
             for (var i = 0; i < particle.particles.Count; i++)
             {
@@ -183,7 +150,7 @@ namespace Coffee.UIExtensions
                     }
                     else
                     {
-                        matrix = matrix * Matrix4x4.Translate(-root.position);
+                        matrix *= Matrix4x4.Translate(-root.position);
                     }
                 }
                 else
@@ -191,31 +158,7 @@ namespace Coffee.UIExtensions
                     matrix = GetScaledMatrix(currentPs);
                 }
 
-                matrix = scaleMatrix * matrix;
                 Profiler.EndSample();
-
-                // Extra world simulation.
-                if (currentPs.main.simulationSpace == ParticleSystemSimulationSpace.World && 0 < diff.sqrMagnitude)
-                {
-                    Profiler.BeginSample("[UIParticle] Bake Mesh > Extra world simulation");
-                    var count = currentPs.particleCount;
-                    if (s_Particles.Length < count)
-                    {
-                        var size = Mathf.NextPowerOfTwo(count);
-                        s_Particles = new ParticleSystem.Particle[size];
-                    }
-
-                    currentPs.GetParticles(s_Particles);
-                    for (var j = 0; j < count; j++)
-                    {
-                        var p = s_Particles[j];
-                        p.position += diff;
-                        s_Particles[j] = p;
-                    }
-
-                    currentPs.SetParticles(s_Particles, count);
-                    Profiler.EndSample();
-                }
 
 #if UNITY_2018_3_OR_NEWER
                 // #102: Do not bake particle system to mesh when the alpha is zero.
