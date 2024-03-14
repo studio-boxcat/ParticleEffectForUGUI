@@ -5,7 +5,6 @@ using Coffee.UIParticleExtensions;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
-using Sirenix.OdinInspector;
 
 [assembly: InternalsVisibleTo("Coffee.UIParticle.Editor")]
 
@@ -17,13 +16,9 @@ namespace Coffee.UIExtensions
     [ExecuteAlways]
     [RequireComponent(typeof(RectTransform))]
     [RequireComponent(typeof(CanvasRenderer))]
-    public class UIParticle : MaskableGraphic
-#if UNITY_EDITOR
-        , ISelfValidator
-#endif
+    public partial class UIParticle : MaskableGraphic
     {
-        [Tooltip("Particles")] [SerializeField]
-        [ListDrawerSettings(IsReadOnly = true), CustomContextMenu("Collect", "Editor_CollectParticles")]
+        [SerializeField, HideInInspector]
         private List<ParticleSystem> m_Particles = new List<ParticleSystem>();
 
         private DrivenRectTransformTracker _tracker;
@@ -244,68 +239,5 @@ namespace Coffee.UIExtensions
         protected override void OnDidApplyAnimationProperties()
         {
         }
-
-#if UNITY_EDITOR
-        protected override void OnValidate()
-        {
-            SetLayoutDirty();
-            SetVerticesDirty();
-            m_ShouldRecalculateStencil = true;
-            RecalculateClipping();
-        }
-
-        public void Editor_CollectParticles()
-        {
-            CollectParticles(this, particles);
-        }
-
-        static void CollectParticles(UIParticle target, List<ParticleSystem> buffer)
-        {
-            target.GetComponentsInChildren(true, buffer);
-            buffer.RemoveAll(x => x.GetComponentInParent<UIParticle>(true) != target);
-            buffer.SortForRendering(target.transform);
-        }
-
-        static readonly List<ParticleSystem> _particleSystemBuf = new();
-
-        void ISelfValidator.Validate(SelfValidationResult result)
-        {
-            CollectParticles(this, _particleSystemBuf);
-
-            if (_particleSystemBuf.Count != particles.Count)
-            {
-                result.AddError($"The number of particles is different. ({particles.Count} != {_particleSystemBuf.Count})");
-                return;
-            }
-
-            for (var i = 0; i < particles.Count; i++)
-            {
-                if (particles[i] == _particleSystemBuf[i]) continue;
-                result.AddError($"The particle is different. ({particles[i].name} != {_particleSystemBuf[i].name})");
-                return;
-            }
-
-            foreach (var ps in particles)
-            {
-                if (ps.TryGetComponent<ParticleSystemRenderer>(out var renderer) && renderer.enabled)
-                {
-                    result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
-                    return;
-                }
-
-                var tsa = ps.textureSheetAnimation;
-                if (tsa.mode == ParticleSystemAnimationMode.Sprites && tsa.uvChannelMask == (UVChannelFlags) 0)
-                {
-                    result.AddError($"The uvChannelMask of TextureSheetAnimationModule is not set to UV0. ({ps.name})");
-                    return;
-                }
-            }
-        }
-
-        protected override bool m_Material_ShowIf() => false;
-        protected override bool m_Color_ShowIf() => false;
-        protected override bool m_RaycastTarget_ShowIf() => false;
-        protected override bool m_RaycastPadding_ShowIf() => false;
-#endif
     }
 }
