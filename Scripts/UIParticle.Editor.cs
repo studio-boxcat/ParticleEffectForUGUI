@@ -5,9 +5,11 @@ using System.Linq;
 using Coffee.UIParticleExtensions;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Coffee.UIExtensions
 {
+    [GraphicPropertyHide(GraphicPropertyFlag.Color | GraphicPropertyFlag.Material | GraphicPropertyFlag.Raycast)]
     public partial class UIParticle : ISelfValidator
     {
         [ShowInInspector, TableList(HideToolbar = true, IsReadOnly = true, AlwaysExpanded = true)]
@@ -73,11 +75,6 @@ namespace Coffee.UIExtensions
                 }
             }
         }
-
-        protected override bool m_Material_ShowIf() => false;
-        protected override bool m_Color_ShowIf() => false;
-        protected override bool m_RaycastTarget_ShowIf() => false;
-        protected override bool m_RaycastPadding_ShowIf() => false;
 
         class ParticleSystemEditorControl
         {
