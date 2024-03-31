@@ -80,8 +80,7 @@ namespace Coffee.UIExtensions
             // Recalculate stencil value.
             if (m_ShouldRecalculateStencil)
             {
-                var rootCanvas = MaskUtilities.FindRootSortOverrideCanvas(transform);
-                m_StencilValue = maskable ? MaskUtilities.GetStencilDepth(transform, rootCanvas) : 0;
+                m_StencilValue = maskable ? MaskUtilities.GetStencilDepth(transform) : 0;
                 m_ShouldRecalculateStencil = false;
             }
 
