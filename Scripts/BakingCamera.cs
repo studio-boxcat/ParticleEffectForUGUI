@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace Coffee.UIParticleExtensions
 {
@@ -53,13 +54,16 @@ namespace Coffee.UIParticleExtensions
 
         private static BakingCamera Create()
         {
-            var gameObject = new GameObject(typeof(BakingCamera).Name);
+            var gameObject = new GameObject(nameof(BakingCamera), typeof(Camera), typeof(BakingCamera))
+            {
+                hideFlags = HideFlags.HideAndDontSave
+            };
 
             // This camera object is just for internal use
             gameObject.hideFlags = HideFlags.HideAndDontSave;
 
-            var inst = gameObject.AddComponent<BakingCamera>();
-            inst._camera = gameObject.AddComponent<Camera>();
+            var inst = gameObject.GetComponent<BakingCamera>();
+            inst._camera = gameObject.GetComponent<Camera>();
             inst._camera.enabled = false;
             inst._camera.orthographic = true;
 
