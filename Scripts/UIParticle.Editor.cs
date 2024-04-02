@@ -28,6 +28,12 @@ namespace Coffee.UIExtensions
             RecalculateClipping();
         }
 
+        protected override void Reset()
+        {
+            base.Reset();
+            Editor_CollectParticles();
+        }
+
         void Editor_CollectParticles()
         {
             CollectParticles(this, particles);
