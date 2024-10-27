@@ -21,11 +21,11 @@ namespace Coffee.UIExtensions
         [SerializeField, HideInInspector]
         private List<ParticleSystem> m_Particles = new List<ParticleSystem>();
 
-        private DrivenRectTransformTracker _tracker;
         private Mesh _bakedMesh;
         private readonly List<Material> _modifiedMaterials = new List<Material>();
         private readonly List<Material> _maskMaterials = new List<Material>();
         private readonly List<bool> _activeMeshIndices = new List<bool>();
+
         private static readonly List<Material> s_TempMaterials = new List<Material>(2);
         private static readonly List<Material> s_PrevMaskMaterials = new List<Material>();
         private static readonly List<Material> s_PrevModifiedMaterials = new List<Material>();
@@ -206,7 +206,6 @@ namespace Coffee.UIExtensions
         protected override void OnDisable()
         {
             UIParticleUpdater.Unregister(this);
-            _tracker.Clear();
 
             // Destroy object.
             MeshPool.Return(_bakedMesh);

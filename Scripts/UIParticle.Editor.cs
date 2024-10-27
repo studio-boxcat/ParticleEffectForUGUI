@@ -50,6 +50,9 @@ namespace Coffee.UIExtensions
 
         void ISelfValidator.Validate(SelfValidationResult result)
         {
+            if (raycastTarget)
+                result.AddError("Raycast Target should be disabled.");
+
             CollectParticles(this, _particleSystemBuf);
 
             if (_particleSystemBuf.Count != particles.Count)
