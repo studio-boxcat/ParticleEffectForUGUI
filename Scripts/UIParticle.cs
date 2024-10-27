@@ -33,15 +33,6 @@ namespace Coffee.UIExtensions
         private static readonly List<ParticleSystem> s_ParticleSystems = new List<ParticleSystem>();
 
 
-        /// <summary>
-        /// Should this graphic be considered a target for raycasting?
-        /// </summary>
-        public override bool raycastTarget
-        {
-            get => false;
-            set { }
-        }
-
         internal Mesh bakedMesh => _bakedMesh;
 
         public List<ParticleSystem> particles => m_Particles;
