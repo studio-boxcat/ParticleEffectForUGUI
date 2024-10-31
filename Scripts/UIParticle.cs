@@ -185,7 +185,7 @@ namespace Coffee.UIExtensions
         {
             // #147: ParticleSystem creates Particles in wrong position during prewarm
             // #148: Particle Sub Emitter not showing when start game
-            var delayToPlay = particles.AnyFast(ps =>
+            var delayToPlay = particles.AnyFast(static ps =>
             {
                 ps.GetComponentsInChildren(false, s_ParticleSystems);
                 return s_ParticleSystems.AnyFast(p => p.isPlaying && (p.subEmitters.enabled || p.main.prewarm));
