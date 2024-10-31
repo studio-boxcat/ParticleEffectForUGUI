@@ -136,6 +136,7 @@ namespace Coffee.UIParticleExtensions
             }
 
             m = new Mesh();
+            m.hideFlags = HideFlags.HideAndDontSave; // Prevent the mesh from destroyed when loading a new scene.
             m.MarkDynamic();
             return m;
         }
