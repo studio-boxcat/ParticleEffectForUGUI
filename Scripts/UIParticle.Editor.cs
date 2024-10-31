@@ -82,6 +82,12 @@ namespace Coffee.UIExtensions
                     result.AddError($"The uvChannelMask of TextureSheetAnimationModule is not set to UV0. ({ps.name})");
                     return;
                 }
+
+                if (Mathf.Approximately(ps.transform.lossyScale.z, 0))
+                {
+                    result.AddError("The zero lossyScale.z will not render particles.");
+                    return;
+                }
             }
         }
 
