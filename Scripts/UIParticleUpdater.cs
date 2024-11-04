@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Coffee.UIParticleExtensions;
 using UnityEngine;
 using UnityEngine.Profiling;
+using UnityEngine.UI;
 
 namespace Coffee.UIExtensions
 {
@@ -32,8 +33,6 @@ namespace Coffee.UIExtensions
         private static void InitializeOnLoad()
         {
             MeshHelper.Init();
-            MeshPool.Init();
-            CombineInstanceArrayPool.Init();
 
             Canvas.willRenderCanvases -= Refresh;
             Canvas.willRenderCanvases += Refresh;

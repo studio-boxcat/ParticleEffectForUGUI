@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Profiling;
+using UnityEngine.UI;
 
 namespace Coffee.UIParticleExtensions
 {
@@ -90,7 +91,9 @@ namespace Coffee.UIParticleExtensions
             }
 
             Profiler.BeginSample("[UIParticle] MeshHelper > Combine Mesh");
-            var cis = CombineInstanceArrayPool.Get(s_CachedInstance, count);
+            var cis = CombineInstancePool.Get(count);
+            for (var i = 0; i < s_CachedInstance.Count; i++)
+                cis[i] = (CombineInstance) s_CachedInstance[i];
             result.CombineMeshes(cis, false, true);
             cis.Clear();
             Profiler.EndSample();

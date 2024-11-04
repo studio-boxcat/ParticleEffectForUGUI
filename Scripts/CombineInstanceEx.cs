@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Coffee.UIParticleExtensions
 {
@@ -8,7 +9,7 @@ namespace Coffee.UIParticleExtensions
         private int count;
         public long hash = -1;
         public int index = -1;
-        private readonly List<CombineInstance> combineInstances = new List<CombineInstance>(32);
+        private readonly List<CombineInstance> combineInstances = new(32);
         public Mesh mesh;
         public Matrix4x4 transform;
 
@@ -24,7 +25,10 @@ namespace Coffee.UIParticleExtensions
                     return;
                 default:
                 {
-                    var cis = CombineInstanceArrayPool.Get(combineInstances);
+                    var cis = CombineInstancePool.Get(combineInstances.Count);
+                    for (var i = 0; i < combineInstances.Count; i++)
+                        cis[i] = combineInstances[i];
+
                     mesh = MeshPool.Rent();
                     mesh.CombineMeshes(cis, true, true);
                     transform = Matrix4x4.identity;
@@ -58,6 +62,11 @@ namespace Coffee.UIParticleExtensions
         {
             combineInstances.Add(new CombineInstance {mesh = mesh, transform = transform});
             count++;
+        }
+
+        public static explicit operator CombineInstance(CombineInstanceEx inst)
+        {
+            return new CombineInstance {mesh = inst.mesh, transform = inst.transform};
         }
     }
 }

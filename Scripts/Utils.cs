@@ -104,12 +104,8 @@ namespace Coffee.UIParticleExtensions
 
     internal static class MeshPool
     {
-        private static readonly Stack<Mesh> s_Pool = new Stack<Mesh>(32);
-        private static readonly HashSet<int> s_HashPool = new HashSet<int>();
-
-        public static void Init()
-        {
-        }
+        private static readonly Stack<Mesh> s_Pool = new(32);
+        private static readonly HashSet<int> s_HashPool = new();
 
         static MeshPool()
         {
@@ -151,58 +147,6 @@ namespace Coffee.UIParticleExtensions
             mesh.Clear(false);
             s_Pool.Push(mesh);
             s_HashPool.Add(id);
-        }
-    }
-
-    internal static class CombineInstanceArrayPool
-    {
-        private static readonly Dictionary<int, CombineInstance[]> s_Pool;
-
-        public static void Init()
-        {
-            s_Pool.Clear();
-        }
-
-        static CombineInstanceArrayPool()
-        {
-            s_Pool = new Dictionary<int, CombineInstance[]>();
-        }
-
-        public static CombineInstance[] Get(List<CombineInstance> src)
-        {
-            CombineInstance[] dst;
-            var count = src.Count;
-            if (!s_Pool.TryGetValue(count, out dst))
-            {
-                dst = new CombineInstance[count];
-                s_Pool.Add(count, dst);
-            }
-
-            for (var i = 0; i < src.Count; i++)
-            {
-                dst[i].mesh = src[i].mesh;
-                dst[i].transform = src[i].transform;
-            }
-
-            return dst;
-        }
-
-        public static CombineInstance[] Get(List<CombineInstanceEx> src, int count)
-        {
-            CombineInstance[] dst;
-            if (!s_Pool.TryGetValue(count, out dst))
-            {
-                dst = new CombineInstance[count];
-                s_Pool.Add(count, dst);
-            }
-
-            for (var i = 0; i < count; i++)
-            {
-                dst[i].mesh = src[i].mesh;
-                dst[i].transform = src[i].transform;
-            }
-
-            return dst;
         }
     }
 
