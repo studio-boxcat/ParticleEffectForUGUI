@@ -20,9 +20,7 @@ namespace Coffee.UIParticleExtensions
         {
             s_CachedInstance = new List<CombineInstanceEx>(8);
             for (var i = 0; i < 8; i++)
-            {
                 s_CachedInstance.Add(new CombineInstanceEx());
-            }
         }
 
         private static CombineInstanceEx Get(int index, long hash)
@@ -92,7 +90,7 @@ namespace Coffee.UIParticleExtensions
 
             Profiler.BeginSample("[UIParticle] MeshHelper > Combine Mesh");
             var cis = CombineInstancePool.Get(count);
-            for (var i = 0; i < s_CachedInstance.Count; i++)
+            for (var i = 0; i < count; i++)
                 cis[i] = (CombineInstance) s_CachedInstance[i];
             result.CombineMeshes(cis, false, true);
             cis.Clear();
