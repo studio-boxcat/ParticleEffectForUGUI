@@ -181,7 +181,7 @@ namespace Coffee.UIExtensions
             base.OnEnable();
         }
 
-        private new IEnumerator Start()
+        private IEnumerator Start()
         {
             // #147: ParticleSystem creates Particles in wrong position during prewarm
             // #148: Particle Sub Emitter not showing when start game
