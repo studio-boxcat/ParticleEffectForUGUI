@@ -91,7 +91,7 @@ namespace Coffee.UIExtensions
             }
         }
 
-        class ParticleSystemEditorControl
+        private class ParticleSystemEditorControl
         {
             public ParticleSystemEditorControl(ParticleSystem particle)
             {
@@ -105,7 +105,11 @@ namespace Coffee.UIExtensions
             public Material Material
             {
                 get => Particle.GetComponent<ParticleSystemRenderer>().sharedMaterial;
-                set => Particle.GetComponent<ParticleSystemRenderer>().sharedMaterial = value;
+                set
+                {
+                    Particle.GetComponent<ParticleSystemRenderer>().sharedMaterial = value;
+                    Particle.GetComponent<UIParticle>().SetMaterialDirty();
+                }
             }
         }
     }
