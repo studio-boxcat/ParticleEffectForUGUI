@@ -63,9 +63,16 @@ namespace Coffee.UIExtensions
 
             for (var i = 0; i < particles.Count; i++)
             {
-                if (particles[i] == _particleSystemBuf[i]) continue;
-                result.AddError($"The particle is different. ({particles[i].name} != {_particleSystemBuf[i].name})");
-                return;
+                var ps = particles[i];
+                if (!ps) continue; // will be checked by RequiredAttribute
+
+                // sequence equals?
+                if (ps.RefNeq(_particleSystemBuf[i]))
+                    result.AddError($"The particle is different. ({ps.name} != {_particleSystemBuf[i].name})");
+
+                var shapeType = ps.shape.shapeType;
+                if (shapeType is ParticleSystemShapeType.Cone)
+                    result.AddError("Only 2D shapes are supported: " + shapeType);
             }
 
             foreach (var ps in particles)

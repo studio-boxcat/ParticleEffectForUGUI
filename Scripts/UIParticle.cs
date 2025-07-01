@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Coffee.UIParticleExtensions;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
@@ -18,7 +19,7 @@ namespace Coffee.UIExtensions
     [RequireComponent(typeof(CanvasRenderer))]
     public partial class UIParticle : MaskableGraphic
     {
-        [SerializeField, HideInInspector]
+        [SerializeField, Required, HideInInspector]
         private List<ParticleSystem> m_Particles = new List<ParticleSystem>();
 
         private Mesh _bakedMesh;
