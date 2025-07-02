@@ -21,14 +21,6 @@ namespace Coffee.UIExtensions
             set => throw new NotSupportedException("Use Collect button to collect particles.");
         }
 
-        protected override void OnValidate()
-        {
-            SetLayoutDirty();
-            SetVerticesDirty();
-            m_ShouldRecalculateStencil = true;
-            RecalculateClipping();
-        }
-
         protected override void Reset()
         {
             base.Reset();

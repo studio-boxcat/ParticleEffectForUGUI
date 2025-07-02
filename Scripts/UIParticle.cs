@@ -70,10 +70,10 @@ namespace Coffee.UIExtensions
             _modifiedMaterials.Clear();
 
             // Recalculate stencil value.
-            if (m_ShouldRecalculateStencil)
+            if (m_StencilDepthDirty)
             {
-                m_StencilValue = maskable ? MaskUtilities.GetStencilDepth(transform) : 0;
-                m_ShouldRecalculateStencil = false;
+                m_StencilDepth = maskable ? MaskUtilities.GetStencilDepth(transform) : 0;
+                m_StencilDepthDirty = false;
             }
 
             // No mesh to render.
@@ -153,9 +153,9 @@ namespace Coffee.UIExtensions
 
         private Material GetModifiedMaterial(Material baseMaterial, Texture2D texture)
         {
-            if (0 < m_StencilValue)
+            if (0 < m_StencilDepth)
             {
-                baseMaterial = StencilMaterial.Add(baseMaterial, (1 << m_StencilValue) - 1, StencilOp.Keep, CompareFunction.Equal, ColorWriteMask.All, (1 << m_StencilValue) - 1, 0);
+                baseMaterial = StencilMaterial.Add(baseMaterial, (1 << m_StencilDepth) - 1, StencilOp.Keep, CompareFunction.Equal, ColorWriteMask.All, (1 << m_StencilDepth) - 1, 0);
                 _maskMaterials.Add(baseMaterial);
             }
 
