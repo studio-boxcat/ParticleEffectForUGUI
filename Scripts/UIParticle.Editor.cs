@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -74,14 +75,14 @@ namespace Coffee.UIExtensions
 
                 if (shapeType is ParticleSystemShapeType.Cone)
                 {
-                    if (!IsValidConeShape(ps))
-                        result.AddError("The ParticleSystem with Cone shape is not setup properly.");
+                    if (!IsValidConeShape(ps, out var detail))
+                        result.AddError("The ParticleSystem with Cone shape is not setup properly: " + detail);
                 }
             }
 
             foreach (var ps in particles)
             {
-                if (ps.TryGetComponent<ParticleSystemRenderer>(out var renderer) && renderer.enabled)
+                if (ps.TryGetComponent<ParticleSystemRenderer>(out var psr) && psr.enabled)
                 {
                     result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
                     return;
@@ -102,8 +103,10 @@ namespace Coffee.UIExtensions
             }
             return;
 
-            static bool IsValidConeShape(ParticleSystem ps)
+            static bool IsValidConeShape(ParticleSystem ps, out string? detail)
             {
+                detail = null;
+
                 var t = ps.transform;
                 var shape = ps.shape;
                 var rot = t.rotation.eulerAngles;
@@ -111,7 +114,7 @@ namespace Coffee.UIExtensions
                 var ss = shape.scale; // shape scale
 
                 // #1: heading up or down + scale.y == 0
-                if ((rot == new Vector3(90, 0, 0) || rot == new Vector3(-90, 0, 0))
+                if ((((rot.x % 180f) is 90f or -90f) && rot is { y: 0, z: 0 })
                     && sr is { x: 0, z: 0 }
                     && ss == new Vector3(1, 0, 1))
                 {
@@ -126,6 +129,7 @@ namespace Coffee.UIExtensions
                     return true;
                 }
 
+                detail = $"Rotation: {rot}, Shape Rotation: {sr}, Shape Scale: {ss}";
                 return false;
             }
         }
