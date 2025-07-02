@@ -71,8 +71,12 @@ namespace Coffee.UIExtensions
                     result.AddError($"The particle is different. ({ps.name} != {_particleSystemBuf[i].name})");
 
                 var shapeType = ps.shape.shapeType;
+
                 if (shapeType is ParticleSystemShapeType.Cone)
-                    result.AddError("Only 2D shapes are supported: " + shapeType);
+                {
+                    if (!IsValidConeShape(ps))
+                        result.AddError("The ParticleSystem with Cone shape is not setup properly.");
+                }
             }
 
             foreach (var ps in particles)
@@ -95,6 +99,34 @@ namespace Coffee.UIExtensions
                     result.AddError("The zero lossyScale.z will not render particles.");
                     return;
                 }
+            }
+            return;
+
+            static bool IsValidConeShape(ParticleSystem ps)
+            {
+                var t = ps.transform;
+                var shape = ps.shape;
+                var rot = t.rotation.eulerAngles;
+                var sr = shape.rotation; // shape rotation
+                var ss = shape.scale; // shape scale
+
+                // #1: heading up or down + scale.y == 0
+                if ((rot == new Vector3(90, 0, 0) || rot == new Vector3(-90, 0, 0))
+                    && sr is { x: 0, z: 0 }
+                    && ss == new Vector3(1, 0, 1))
+                {
+                    return true;
+                }
+
+                // #2: rotated around Z-axis + scale.x == 0
+                if (rot == new Vector3(0, 0, 0)
+                    && sr is { y: 90, z: 0 }
+                    && ss is { x : 0 })
+                {
+                    return true;
+                }
+
+                return false;
             }
         }
 
