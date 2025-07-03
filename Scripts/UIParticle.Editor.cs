@@ -9,10 +9,21 @@ namespace Coffee.UIExtensions
     [GraphicPropertyHide(GraphicPropertyFlag.Color | GraphicPropertyFlag.Raycast)]
     public partial class UIParticle : ISelfValidator
     {
-        protected override void Reset()
+        // editor only initializer.
+        private void Awake()
         {
-            base.Reset();
-            Source = GetComponent<ParticleSystem>();
+            if (!_texture) _texture = AssetDatabaseUtils.LoadTextureWithGUID("0311aa56f4c25498ebd31febe866c3cf"); // Particle_Bling_Y
+            if (!m_Material) m_Material = AssetDatabaseUtils.LoadMaterialWithGUID("d8984a0a3a8bb45d48946817c2152326");
+
+            if (!Source)
+            {
+                Source = GetComponent<ParticleSystem>();
+                var main = Source.main;
+                main.startSpeed = 0.3f;
+                var shape = Source.shape;
+                shape.shapeType = ParticleSystemShapeType.Circle;
+                SourceRenderer.sharedMaterial = m_Material;
+            }
         }
 
         void ISelfValidator.Validate(SelfValidationResult result)
@@ -104,17 +115,17 @@ namespace Coffee.UIExtensions
             }
         }
 
-        protected override void OnValidate()
+        [Button(DirtyOnClick = false), ButtonGroup(order: 1000)]
+        private void Restart()
         {
-            base.OnValidate();
+            Source.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            Source.Play(true);
+        }
 
-            // ParticleSystemRenderer -> UIParticle
-            var mat = SourceRenderer.sharedMaterial;
-            if (mat)
-            {
-                if (!m_Material) m_Material = mat;
-                if (!_texture) _texture = (Texture2D) mat.mainTexture;
-            }
+        [Button("Emit 10", DirtyOnClick = false), ButtonGroup]
+        private void Emit10()
+        {
+            Source.Emit(10);
         }
 
         private void OnInspectorTextureChanged()
