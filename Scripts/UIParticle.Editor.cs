@@ -26,6 +26,37 @@ namespace Coffee.UIExtensions
             }
         }
 
+        [ShowInInspector, FoldoutGroup("Advanced"), PropertyOrder(100)]
+        private Material _partialMainMaterial => SourceRenderer.sharedMaterial;
+        [ShowInInspector, FoldoutGroup("Advanced"), PropertyOrder(100)]
+        private Material _partialTrailMaterial => SourceRenderer.trailMaterial;
+
+        [Button(DirtyOnClick = false), ButtonGroup(order: 1000)]
+        private void Restart()
+        {
+            Source.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            Source.Play(true);
+        }
+
+        [Button("Emit 10", DirtyOnClick = false), ButtonGroup]
+        private void Emit10()
+        {
+            Source.Emit(10);
+        }
+
+        private void OnInspectorTextureChanged()
+        {
+            _mpb!.SetMainTex(_texture);
+            SourceRenderer.SetPropertyBlock(_mpb);
+            Restart();
+        }
+
+        protected override void OnInspectorMaterialChanged()
+        {
+            SourceRenderer.sharedMaterial = m_Material;
+            Restart();
+        }
+
         void ISelfValidator.Validate(SelfValidationResult result)
         {
             if (raycastTarget)
@@ -113,32 +144,6 @@ namespace Coffee.UIExtensions
                 detail = $"Rotation: {rot}, Shape Rotation: {sr}, Shape Scale: {ss}";
                 return false;
             }
-        }
-
-        [Button(DirtyOnClick = false), ButtonGroup(order: 1000)]
-        private void Restart()
-        {
-            Source.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            Source.Play(true);
-        }
-
-        [Button("Emit 10", DirtyOnClick = false), ButtonGroup]
-        private void Emit10()
-        {
-            Source.Emit(10);
-        }
-
-        private void OnInspectorTextureChanged()
-        {
-            _mpb!.SetMainTex(_texture);
-            SourceRenderer.SetPropertyBlock(_mpb);
-            Restart();
-        }
-
-        protected override void OnInspectorMaterialChanged()
-        {
-            SourceRenderer.sharedMaterial = m_Material;
-            Restart();
         }
     }
 }
