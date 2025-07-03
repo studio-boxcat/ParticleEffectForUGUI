@@ -78,11 +78,13 @@ namespace Coffee.UIExtensions
 
         private static void BakeMesh(UIParticle particle)
         {
-            var m = particle.bakedMesh;
+            var m = particle.bakedMesh!; // BakeMesh() is called by Refresh() which only handles enabled UIParticle.
+            m.Clear(false); // clear mesh first.
 
             var ps = particle.particle;
             var pr = ps.GetComponent<ParticleSystemRenderer>();
             var t = particle.transform;
+
 
 
             if (
@@ -91,14 +93,9 @@ namespace Coffee.UIExtensions
                 // #102: Do not bake particle system to mesh when the alpha is zero.
                 || Mathf.Approximately(particle.canvasRenderer.GetInheritedAlpha(), 0))
             {
-                particle.subMeshCount = 0;
+                particle.SetSubMeshCount(0);
                 return;
             }
-
-            // Clear mesh before bake.
-            Profiler.BeginSample("[UIParticle] Bake Mesh > Clear mesh before bake");
-            m.Clear(false);
-            Profiler.EndSample();
 
             // Calc matrix.
             Profiler.BeginSample("[UIParticle] Bake Mesh > Calc matrix");
@@ -148,7 +145,7 @@ namespace Coffee.UIExtensions
 
             // Set active indices.
             Profiler.BeginSample("[UIParticle] Bake Mesh > Set active indices");
-            particle.subMeshCount = subMeshCount;
+            particle.SetSubMeshCount(subMeshCount);
             Profiler.EndSample();
 
             // Combine

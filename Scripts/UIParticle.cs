@@ -18,6 +18,8 @@ namespace Coffee.UIExtensions
     [ExecuteAlways]
     [RequireComponent(typeof(RectTransform))]
     [RequireComponent(typeof(CanvasRenderer))]
+    [RequireComponent(typeof(ParticleSystem))]
+    [RequireComponent(typeof(ParticleSystemRenderer))]
     public partial class UIParticle : MaskableGraphic
     {
         [SerializeField, Required, HideInInspector, RequiredListLength(1)]
@@ -33,19 +35,16 @@ namespace Coffee.UIExtensions
         private static readonly List<IMaterialModifier> _matModBuf = new();
         private static readonly List<ParticleSystem> _psBuf = new();
 
+        [ShowInInspector, Required, ReadOnly]
         public ParticleSystem particle => m_Particles[0];
         internal Mesh? bakedMesh => _bakedMesh;
         public override Material materialForRendering => canvasRenderer.GetMaterial(0);
 
-        internal int subMeshCount
+        internal void SetSubMeshCount(int value)
         {
-            get => _subMeshCount;
-            set
-            {
-                if (_subMeshCount == value) return;
-                _subMeshCount = value;
-                UpdateMaterial();
-            }
+            if (_subMeshCount == value) return;
+            _subMeshCount = value;
+            UpdateMaterial();
         }
 
         protected override void UpdateMaterial()
@@ -136,7 +135,7 @@ namespace Coffee.UIExtensions
             // if there's texture, modify material to use it.
             if (texture)
             {
-                baseMaterial = ModifiedMaterial.Add(baseMaterial, texture, 0);
+                baseMaterial = ModifiedMaterial.Add(baseMaterial, texture);
                 _modMats.Add(baseMaterial);
             }
 

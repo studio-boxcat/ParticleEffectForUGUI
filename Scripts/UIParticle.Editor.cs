@@ -1,6 +1,5 @@
 #if UNITY_EDITOR
 #nullable enable
-using System;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,17 +9,14 @@ namespace Coffee.UIExtensions
     [GraphicPropertyHide(GraphicPropertyFlag.Color | GraphicPropertyFlag.Material | GraphicPropertyFlag.Raycast)]
     public partial class UIParticle : ISelfValidator
     {
-        [ShowInInspector, NonSerialized]
-        public ParticleSystem Particle;
-
-        [ShowInInspector]
-        public Material Material
+        [ShowInInspector] // only for editor inspector.
+        private Material _material
         {
-            get => Particle.GetComponent<ParticleSystemRenderer>().sharedMaterial;
+            get => particle.GetComponent<ParticleSystemRenderer>().sharedMaterial;
             set
             {
-                Particle.GetComponent<ParticleSystemRenderer>().sharedMaterial = value;
-                Particle.GetComponent<UIParticle>().SetMaterialDirty();
+                particle.GetComponent<ParticleSystemRenderer>().sharedMaterial = value;
+                particle.GetComponent<UIParticle>().SetMaterialDirty();
             }
         }
 
@@ -36,17 +32,18 @@ namespace Coffee.UIExtensions
                 result.AddError("Raycast Target should be disabled.");
 
             using var _ = CompBuf.GetComponents(this, typeof(ParticleSystem), out var particles);
-
             if (particles.Count > 1)
                 result.AddError("Multiple ParticleSystems are not supported. Please use only one ParticleSystem.");
 
-            var ps = GetComponent<ParticleSystem>();
+            var ps = (ParticleSystem) particles[0];
             if (ps.RefNeq(particle))
                 result.AddError("The ParticleSystem component is not the same as the one in m_Particles.");
             if (Mathf.Approximately(ps.transform.lossyScale.z, 0))
                 result.AddError("The zero lossyScale.z will not render particles.");
 
             var pr = GetComponent<ParticleSystemRenderer>();
+            if (!pr)
+                result.AddError("The ParticleSystemRenderer component is missing.");
             if (pr.enabled)
                 result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
             if (!pr.sharedMaterial)

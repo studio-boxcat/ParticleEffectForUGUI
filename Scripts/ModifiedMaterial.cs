@@ -7,28 +7,27 @@ namespace Coffee.UIParticleExtensions
     {
         private static readonly List<MatEntry> s_Entries = new List<MatEntry>();
 
-        public static Material Add(Material baseMat, Texture texture, int id)
+        public static Material Add(Material baseMat, Texture texture)
         {
             MatEntry e;
             for (var i = 0; i < s_Entries.Count; ++i)
             {
                 e = s_Entries[i];
-                if (e.baseMat != baseMat || e.texture != texture || e.id != id) continue;
-                ++e.count;
+                if (e.baseMat != baseMat || e.texture != texture) continue;
+                ++e.refCount;
                 return e.customMat;
             }
 
             e = new MatEntry();
-            e.count = 1;
+            e.refCount = 1;
             e.baseMat = baseMat;
             e.texture = texture;
-            e.id = id;
             e.customMat = new Material(baseMat);
             e.customMat.hideFlags = HideFlags.HideAndDontSave;
             if (texture)
                 e.customMat.mainTexture = texture;
             s_Entries.Add(e);
-            // Debug.LogFormat(">>>> ModifiedMaterial.Add -> count = {0} {1} {2} {3}", s_Entries.Count, baseMat, texture, id);
+            // Debug.LogFormat(">>>> ModifiedMaterial.Add -> refCount = {0} {1} {2} {3}", s_Entries.Count, baseMat, texture, id);
             return e.customMat;
         }
 
@@ -40,9 +39,9 @@ namespace Coffee.UIParticleExtensions
             {
                 var e = s_Entries[i];
                 if (e.customMat != customMat) continue;
-                if (--e.count == 0)
+                if (--e.refCount == 0)
                 {
-                    // Debug.LogFormat(">>>> ModifiedMaterial.Add -> count = {0} {1} {2} {3}", s_Entries.Count - 1, e.customMat, e.texture, e.id);
+                    // Debug.LogFormat(">>>> ModifiedMaterial.Add -> refCount = {0} {1} {2} {3}", s_Entries.Count - 1, e.customMat, e.texture, e.id);
                     DestroyImmediate(e.customMat);
                     e.baseMat = null;
                     e.texture = null;
@@ -66,9 +65,8 @@ namespace Coffee.UIParticleExtensions
         {
             public Material baseMat;
             public Material customMat;
-            public int count;
+            public int refCount;
             public Texture texture;
-            public int id;
         }
     }
 }
