@@ -6,20 +6,9 @@ using UnityEngine.UI;
 
 namespace Coffee.UIExtensions
 {
-    [GraphicPropertyHide(GraphicPropertyFlag.Color | GraphicPropertyFlag.Material | GraphicPropertyFlag.Raycast)]
+    [GraphicPropertyHide(GraphicPropertyFlag.Color | GraphicPropertyFlag.Raycast)]
     public partial class UIParticle : ISelfValidator
     {
-        [ShowInInspector] // only for editor inspector.
-        private Material _material
-        {
-            get => SourceRenderer.sharedMaterial;
-            set
-            {
-                SourceRenderer.sharedMaterial = value;
-                SetMaterialDirty();
-            }
-        }
-
         protected override void Reset()
         {
             base.Reset();
@@ -48,6 +37,10 @@ namespace Coffee.UIExtensions
                 result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
             if (!pr.sharedMaterial)
                 result.AddError($"The ParticleSystemRenderer's sharedMaterial is not set. ({ps.name})");
+            if (pr.sharedMaterial.RefNeq(m_Material))
+                result.AddError($"The ParticleSystemRenderer's sharedMaterial is not the same as the one in m_Material. ({ps.name})");
+            if (pr.sharedMaterial.mainTexture)
+                result.AddError($"The ParticleSystemRenderer's sharedMaterial's mainTexture is not null. ({pr.sharedMaterial.name})");
             // #69: Editor crashes when mesh is set to null when `ParticleSystem.RenderMode = Mesh`
             if (pr.renderMode == ParticleSystemRenderMode.Mesh && !pr.mesh)
                 result.AddError("The ParticleSystemRenderer's mesh is null. Please assign a mesh.");
@@ -65,8 +58,16 @@ namespace Coffee.UIExtensions
 
             // texture sheet animation module
             var tsa = ps.textureSheetAnimation;
-            if (tsa is { mode: ParticleSystemAnimationMode.Sprites, uvChannelMask: 0 })
-                result.AddError($"The uvChannelMask of TextureSheetAnimationModule is not set to UV0. ({ps.name})");
+            if (tsa.enabled)
+            {
+                if (tsa.spriteCount is 0)
+                    result.AddError($"The ParticleSystem's TextureSheetAnimationModule is enabled but spriteCount is 0. ({ps.name})");
+                if (tsa.GetSprite(0).texture.RefNeq(_texture))
+                    result.AddError($"The ParticleSystem's TextureSheetAnimationModule's first sprite's texture is not the same as the one in m_Texture. ({ps.name})");
+                // Why?
+                if (tsa is { mode: ParticleSystemAnimationMode.Sprites, uvChannelMask: 0 })
+                    result.AddError($"The uvChannelMask of TextureSheetAnimationModule is not set to UV0. ({ps.name})");
+            }
 
             // trail module
             if (ps.trails.enabled)
@@ -106,6 +107,33 @@ namespace Coffee.UIExtensions
                 detail = $"Rotation: {rot}, Shape Rotation: {sr}, Shape Scale: {ss}";
                 return false;
             }
+        }
+
+        protected override void OnValidate()
+        {
+            base.OnValidate();
+
+            // ParticleSystemRenderer -> UIParticle
+            var mat = SourceRenderer.sharedMaterial;
+            if (mat)
+            {
+                if (!m_Material) m_Material = mat;
+                if (!_texture) _texture = (Texture2D) mat.mainTexture;
+            }
+        }
+
+        private void OnInspectorTextureChanged()
+        {
+            SourceRenderer.SetPropertyBlock(GraphicsUtils.CreateMaterialPropertyBlock(mainTexture));
+            Source.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            Source.Play(true);
+        }
+
+        protected override void OnInspectorMaterialChanged()
+        {
+            SourceRenderer.sharedMaterial = m_Material;
+            Source.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            Source.Play(true);
         }
     }
 }

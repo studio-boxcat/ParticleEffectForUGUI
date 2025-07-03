@@ -3,10 +3,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Coffee.UIParticleExtensions;
 using Sirenix.OdinInspector;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 [assembly: InternalsVisibleTo("Coffee.UIParticle.Editor")]
@@ -25,30 +23,19 @@ namespace Coffee.UIExtensions
     {
         [SerializeField, Required, HideInInspector, ReadOnly]
         internal ParticleSystem Source = null!;
-        [NonSerialized]
-        internal Mesh? BakedMesh;
+        [SerializeField, Required, AssetsOnly, OnValueChanged("OnInspectorTextureChanged")]
+        private Texture2D _texture = null!;
+        public override Texture mainTexture => _texture;
 
         [NonSerialized]
-        private ParticleSystemRenderer? _sourceRenderer;
+        private ParticleSystemRenderer? _sourceRenderer = null;
         internal ParticleSystemRenderer SourceRenderer => _sourceRenderer ??= Source.GetComponent<ParticleSystemRenderer>();
 
+        [NonSerialized]
+        internal Mesh? BakedMesh;
         private int _subMeshCount;
-        private readonly List<Material> _maskMats = new();
-        private readonly List<Material> _modMats = new();
 
-        private static readonly List<Material> _garbageMaskMats = new();
-        private static readonly List<Material> _garbageModMats = new();
-        private static readonly List<IMaterialModifier> _matModBuf = new();
         private static readonly List<ParticleSystem> _psBuf = new();
-
-        public override Material materialForRendering
-        {
-            get
-            {
-                L.E("[UIParticle] materialForRendering is not supported.");
-                return canvasRenderer.GetMaterial(0);
-            }
-        }
 
         internal void SetSubMeshCount(int value)
         {
@@ -59,97 +46,26 @@ namespace Coffee.UIExtensions
 
         protected override void UpdateMaterial()
         {
-            var cr = canvasRenderer; // cache for performance.
-
-            // Clear old materials.
-            TransferToGarbage(_maskMats, _modMats);
-
-            // Recalculate stencil value.
-            if (m_StencilDepthDirty)
-            {
-                m_StencilDepth = maskable ? MaskUtilities.GetStencilDepth(transform) : 0;
-                m_StencilDepthDirty = false;
-            }
-
             // No mesh to render.
-            if (_subMeshCount is 0 || !isActiveAndEnabled)
-            {
-                cr.Clear();
-                PurgeGarbage();
-                return;
-            }
+            if (_subMeshCount is 0 || !isActiveAndEnabled) return;
 
-            //
-            cr.materialCount = _subMeshCount; // max 2
-            GetComponents(_matModBuf);
+            // call base.UpdateMaterial() to ensure the main material is set.
+            base.UpdateMaterial();
+
+            // process the trail material.
+            if (_subMeshCount is 2)
             {
-                var ps = Source;
                 var r = SourceRenderer;
+                var mat = r.trailMaterial;
+                // depth is already set by base class. (UpdateMaterial() -> MaterialModifierUtils.ResolveMaterialForRendering() -> GetModifiedMaterial())
+                var d = m_StencilDepth!.Value;
+                if (d is not 0) mat = StencilMaterial.AddMaskable(r.trailMaterial, d); // make maskable.
+                mat = MaterialModifierUtils.ResolveMaterialForRenderingExceptSelf(r, mat); // skip self, since it just for enabling stencil.
 
-                // Main - always enabled.
-                {
-                    var mat = GetModifiedMaterial(r.sharedMaterial, ps.GetTextureForSprite());
-                    for (var k = 1; k < _matModBuf.Count; k++) // skip 0, because it's itself.
-                        mat = _matModBuf[k].GetModifiedMaterial(mat);
-                    cr.SetMaterial(mat, 0);
-                }
-
-                // Trail - trail enabled only if main is enabled
-                if (_subMeshCount > 1)
-                {
-                    var mat = GetModifiedMaterial(r.trailMaterial, null);
-                    for (var k = 1; k < _matModBuf.Count; k++) // skip 0, because it's itself.
-                        mat = _matModBuf[k].GetModifiedMaterial(mat);
-                    cr.SetMaterial(mat, 1);
-                }
+                var cr = canvasRenderer;
+                cr.materialCount = 2;
+                cr.SetMaterial(mat, 1);
             }
-
-            PurgeGarbage();
-        }
-
-        private void ClearMaterials()
-        {
-            canvasRenderer.Clear();
-            TransferToGarbage(_maskMats, _modMats);
-            PurgeGarbage();
-        }
-
-        private static void TransferToGarbage(List<Material> maskMats, List<Material> modMats)
-        {
-            _garbageMaskMats.AddRange(maskMats);
-            maskMats.Clear();
-            _garbageModMats.AddRange(modMats);
-            modMats.Clear();
-        }
-
-        private static void PurgeGarbage()
-        {
-            foreach (var m in _garbageMaskMats)
-                StencilMaterial.Remove(m);
-            _garbageMaskMats.Clear();
-
-            foreach (var m in _garbageModMats)
-                ModifiedMaterial.Remove(m);
-            _garbageModMats.Clear();
-        }
-
-        private Material GetModifiedMaterial(Material baseMaterial, Texture2D? texture)
-        {
-            // enable stencil first.
-            if (0 < m_StencilDepth)
-            {
-                baseMaterial = StencilMaterial.Add(baseMaterial, (1 << m_StencilDepth) - 1, StencilOp.Keep, CompareFunction.Equal, ColorWriteMask.All, (1 << m_StencilDepth) - 1, 0);
-                _maskMats.Add(baseMaterial);
-            }
-
-            // if there's texture, modify material to use it.
-            if (texture)
-            {
-                baseMaterial = ModifiedMaterial.Add(baseMaterial, texture);
-                _modMats.Add(baseMaterial);
-            }
-
-            return baseMaterial;
         }
 
         /// <summary>
@@ -158,6 +74,8 @@ namespace Coffee.UIExtensions
         protected override void OnEnable()
         {
             _subMeshCount = 0;
+
+            SourceRenderer.SetPropertyBlock(GraphicsUtils.CreateMaterialPropertyBlock(mainTexture));
 
             UIParticleUpdater.Register(this);
 
@@ -212,7 +130,7 @@ namespace Coffee.UIExtensions
             BakedMesh = null;
 
             base.OnDisable();
-            ClearMaterials();
+            canvasRenderer.Clear();
         }
 
         /// <summary>

@@ -104,6 +104,7 @@ namespace Coffee.UIExtensions
             // Get camera for baking mesh.
             // var cam = BakingCamera.GetCamera(particle.canvas);
             var cam = particle.canvas.worldCamera; // use camera directly.
+            Assert.IsTrue(cam, $"UIParticle {particle.SafeName()} requires a camera to bake mesh.");
 
             // Bake main particles.
             var subMeshCount = 1;
