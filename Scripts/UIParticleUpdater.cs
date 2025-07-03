@@ -34,18 +34,21 @@ namespace Coffee.UIExtensions
             _frameCount = Time.frameCount;
 
             Profiler.BeginSample("[UIParticle] Refresh");
-            for (var i = 0; i < _particles.Count; i++)
+
+            var mesh = MeshPool.Rent();
+
+            foreach (var particle in _particles)
             {
-                var particle = _particles[i];
+                mesh.Clear(keepVertexLayout: true);
 
                 try
                 {
                     Profiler.BeginSample("[UIParticle] Bake mesh");
-                    BakeMesh(particle);
+                    BakeMesh(particle, mesh);
                     Profiler.EndSample();
 
                     Profiler.BeginSample("[UIParticle] Set mesh to CanvasRenderer");
-                    particle.canvasRenderer.SetMesh(particle.BakedMesh);
+                    particle.canvasRenderer.SetMesh(mesh); // this will copy mesh data into CanvasRenderer.
                     Profiler.EndSample();
                 }
                 catch (Exception e) // just in case.
@@ -53,6 +56,8 @@ namespace Coffee.UIExtensions
                     Debug.LogException(e);
                 }
             }
+
+            MeshPool.Return(mesh);
 
             Profiler.EndSample();
         }
@@ -76,11 +81,8 @@ namespace Coffee.UIExtensions
             };
         }
 
-        private static void BakeMesh(UIParticle particle)
+        private static void BakeMesh(UIParticle particle, Mesh mesh)
         {
-            var m = particle.BakedMesh!; // BakeMesh() is called by Refresh() which only handles enabled UIParticle.
-            m.Clear(false); // clear mesh first.
-
             var ps = particle.Source;
             var pr = particle.SourceRenderer;
             var t = particle.transform;
@@ -154,9 +156,9 @@ namespace Coffee.UIExtensions
 
             // Combine
             Profiler.BeginSample("[UIParticle] Bake Mesh > CombineMesh");
-            if (subMeshCount is 1) m.CombineMeshes(_cis[0].mesh, _cis[0].transform);
-            else m.CombineMeshes(_cis, mergeSubMeshes: false, useMatrices: true);
-            m.RecalculateBounds();
+            if (subMeshCount is 1) mesh.CombineMeshes(_cis[0].mesh, _cis[0].transform);
+            else mesh.CombineMeshes(_cis, mergeSubMeshes: false, useMatrices: true);
+            mesh.RecalculateBounds();
             Profiler.EndSample();
             return;
 

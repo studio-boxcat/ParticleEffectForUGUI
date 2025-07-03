@@ -32,9 +32,6 @@ namespace Coffee.UIExtensions
         private ParticleSystemRenderer? _sourceRenderer = null;
         internal ParticleSystemRenderer SourceRenderer => _sourceRenderer ??= Source.GetComponent<ParticleSystemRenderer>();
 
-        [NonSerialized]
-        internal Mesh? BakedMesh;
-
         private MaterialPropertyBlock? _mpb;
         private int _subMeshCount;
 
@@ -105,15 +102,6 @@ namespace Coffee.UIExtensions
         {
             _subMeshCount = 0;
 
-            if (_mpb is null)
-            {
-                _mpb = GraphicsUtils.CreateMaterialPropertyBlock(mainTexture);
-                SourceRenderer.SetPropertyBlock(_mpb);
-            }
-
-            // Create objects.
-            BakedMesh = MeshPool.Rent();
-
             base.OnEnable();
 
             UIParticleUpdater.Register(this);
@@ -123,6 +111,12 @@ namespace Coffee.UIExtensions
 
         private IEnumerator Start()
         {
+            if (_mpb is null)
+            {
+                _mpb = GraphicsUtils.CreateMaterialPropertyBlock(mainTexture);
+                SourceRenderer.SetPropertyBlock(_mpb);
+            }
+
             // #147: ParticleSystem creates Particles in wrong position during prewarm
             // #148: Particle Sub Emitter not showing when start game
             if (!NeedDelayToPlay(this))
@@ -160,10 +154,6 @@ namespace Coffee.UIExtensions
         protected override void OnDisable()
         {
             UIParticleUpdater.Unregister(this);
-
-            // Destroy object.
-            MeshPool.Return(BakedMesh!); // Rented from OnEnable().
-            BakedMesh = null;
 
             base.OnDisable();
             canvasRenderer.Clear();
