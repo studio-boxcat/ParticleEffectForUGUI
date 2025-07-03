@@ -23,6 +23,7 @@ namespace Coffee.UIExtensions
     {
         [SerializeField, Required, HideInInspector, ReadOnly]
         internal ParticleSystem Source = null!;
+
         [SerializeField, Required, AssetsOnly, OnValueChanged("OnInspectorTextureChanged")]
         private Texture2D _texture = null!;
         public override Texture mainTexture => _texture;
@@ -33,9 +34,38 @@ namespace Coffee.UIExtensions
 
         [NonSerialized]
         internal Mesh? BakedMesh;
+
+        private MaterialPropertyBlock? _mpb;
         private int _subMeshCount;
 
-        private static readonly List<ParticleSystem> _psBuf = new();
+        public void SetTexture(Texture2D value)
+        {
+            if (_texture.RefEq(value))
+                return;
+
+            _texture = value;
+
+            if (_mpb is not null)
+            {
+                _mpb.SetMainTex(value);
+                SourceRenderer.SetPropertyBlock(_mpb);
+            }
+
+            SetMaterialDirty();
+        }
+
+        public override Material material
+        {
+            get => base.material;
+            set
+            {
+                var changed = m_Material.RefEq(value);
+                if (!changed) return;
+                base.material = value;
+                SourceRenderer.sharedMaterial = value;
+            }
+        }
+
 
         internal void SetSubMeshCount(int value)
         {
@@ -75,15 +105,21 @@ namespace Coffee.UIExtensions
         {
             _subMeshCount = 0;
 
-            SourceRenderer.SetPropertyBlock(GraphicsUtils.CreateMaterialPropertyBlock(mainTexture));
-
-            UIParticleUpdater.Register(this);
+            if (_mpb is null)
+            {
+                _mpb = GraphicsUtils.CreateMaterialPropertyBlock(mainTexture);
+                SourceRenderer.SetPropertyBlock(_mpb);
+            }
 
             // Create objects.
             BakedMesh = MeshPool.Rent();
 
             base.OnEnable();
+
+            UIParticleUpdater.Register(this);
         }
+
+        private static readonly List<ParticleSystem> _psBuf = new();
 
         private IEnumerator Start()
         {

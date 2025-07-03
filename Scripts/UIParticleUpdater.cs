@@ -96,15 +96,19 @@ namespace Coffee.UIExtensions
                 return;
             }
 
+            // Get camera for baking mesh.
+            // var cam = BakingCamera.GetCamera(particle.canvas);
+            var cam = ResolveCamera(particle);
+            if (!cam)
+            {
+                L.E($"UIParticle {particle.SafeName()} requires a camera to bake mesh.");
+                return;
+            }
+
             // Calc matrix.
             Profiler.BeginSample("[UIParticle] Bake Mesh > Calc matrix");
             var matrix = GetScaledMatrix(ps);
             Profiler.EndSample();
-
-            // Get camera for baking mesh.
-            // var cam = BakingCamera.GetCamera(particle.canvas);
-            var cam = particle.canvas.worldCamera; // use camera directly.
-            Assert.IsTrue(cam, $"UIParticle {particle.SafeName()} requires a camera to bake mesh.");
 
             // Bake main particles.
             var subMeshCount = 1;
@@ -154,6 +158,16 @@ namespace Coffee.UIExtensions
             else m.CombineMeshes(_cis, mergeSubMeshes: false, useMatrices: true);
             m.RecalculateBounds();
             Profiler.EndSample();
+            return;
+
+            static Camera? ResolveCamera(UIParticle particle)
+            {
+                var cam = particle.canvas.worldCamera; // use camera directly.
+#if UNITY_EDITOR
+                if (!cam && Editing.Yes(particle)) cam = Camera.current;
+#endif
+                return cam;
+            }
         }
     }
 }

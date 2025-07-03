@@ -60,13 +60,8 @@ namespace Coffee.UIExtensions
             var tsa = ps.textureSheetAnimation;
             if (tsa.enabled)
             {
-                if (tsa.spriteCount is 0)
-                    result.AddError($"The ParticleSystem's TextureSheetAnimationModule is enabled but spriteCount is 0. ({ps.name})");
-                if (tsa.GetSprite(0).texture.RefNeq(_texture))
-                    result.AddError($"The ParticleSystem's TextureSheetAnimationModule's first sprite's texture is not the same as the one in m_Texture. ({ps.name})");
-                // Why?
-                if (tsa is { mode: ParticleSystemAnimationMode.Sprites, uvChannelMask: 0 })
-                    result.AddError($"The uvChannelMask of TextureSheetAnimationModule is not set to UV0. ({ps.name})");
+                if (tsa.mode is not ParticleSystemAnimationMode.Grid)
+                    result.AddError($"The ParticleSystem's TextureSheetAnimationModule mode is not set to Grid. ({ps.name})");
             }
 
             // trail module
@@ -124,16 +119,15 @@ namespace Coffee.UIExtensions
 
         private void OnInspectorTextureChanged()
         {
-            SourceRenderer.SetPropertyBlock(GraphicsUtils.CreateMaterialPropertyBlock(mainTexture));
-            Source.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            Source.Play(true);
+            _mpb!.SetMainTex(_texture);
+            SourceRenderer.SetPropertyBlock(_mpb);
+            Restart();
         }
 
         protected override void OnInspectorMaterialChanged()
         {
             SourceRenderer.sharedMaterial = m_Material;
-            Source.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            Source.Play(true);
+            Restart();
         }
     }
 }
