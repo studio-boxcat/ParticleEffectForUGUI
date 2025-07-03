@@ -1,3 +1,4 @@
+#nullable enable
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -19,55 +20,40 @@ namespace Coffee.UIExtensions
     [RequireComponent(typeof(CanvasRenderer))]
     public partial class UIParticle : MaskableGraphic
     {
-        [SerializeField, Required, HideInInspector]
-        private List<ParticleSystem> m_Particles = new List<ParticleSystem>();
+        [SerializeField, Required, HideInInspector, RequiredListLength(1)]
+        private ParticleSystem[] m_Particles = null!;
 
-        private Mesh _bakedMesh;
-        private readonly List<Material> _modifiedMaterials = new List<Material>();
-        private readonly List<Material> _maskMaterials = new List<Material>();
-        private readonly List<bool> _activeMeshIndices = new List<bool>();
+        private Mesh? _bakedMesh;
+        private readonly List<Material> _maskMats = new();
+        private readonly List<Material> _modMats = new();
+        private int _subMeshCount;
 
-        private static readonly List<Material> s_TempMaterials = new List<Material>(2);
-        private static readonly List<Material> s_PrevMaskMaterials = new List<Material>();
-        private static readonly List<Material> s_PrevModifiedMaterials = new List<Material>();
-        private static readonly List<IMaterialModifier> s_Components = new List<IMaterialModifier>();
-        private static readonly List<ParticleSystem> s_ParticleSystems = new List<ParticleSystem>();
+        private static readonly List<Material> _garbageMaskMats = new();
+        private static readonly List<Material> _garbageModMats = new();
+        private static readonly List<IMaterialModifier> _matModBuf = new();
+        private static readonly List<ParticleSystem> _psBuf = new();
 
-
-        internal Mesh bakedMesh => _bakedMesh;
-
-        public List<ParticleSystem> particles => m_Particles;
-
-        public IEnumerable<Material> materials => _modifiedMaterials;
-
+        public ParticleSystem particle => m_Particles[0];
+        internal Mesh? bakedMesh => _bakedMesh;
         public override Material materialForRendering => canvasRenderer.GetMaterial(0);
 
-        public List<bool> activeMeshIndices
+        internal int subMeshCount
         {
-            get => _activeMeshIndices;
+            get => _subMeshCount;
             set
             {
-                if (_activeMeshIndices.SequenceEqualFast(value)) return;
-                _activeMeshIndices.Clear();
-                _activeMeshIndices.AddRange(value);
+                if (_subMeshCount == value) return;
+                _subMeshCount = value;
                 UpdateMaterial();
             }
         }
 
-        public void Play() => particles.Exec(p => p.Play());
-        public void Pause() => particles.Exec(p => p.Pause());
-        public void Stop() => particles.Exec(p => p.Stop());
-        public void Clear() => particles.Exec(p => p.Clear());
-
         protected override void UpdateMaterial()
         {
-            // Clear mask materials.
-            s_PrevMaskMaterials.AddRange(_maskMaterials);
-            _maskMaterials.Clear();
+            var cr = canvasRenderer; // cache for performance.
 
-            // Clear modified materials.
-            s_PrevModifiedMaterials.AddRange(_modifiedMaterials);
-            _modifiedMaterials.Clear();
+            // Clear old materials.
+            TransferToGarbage(_maskMats, _modMats);
 
             // Recalculate stencil value.
             if (m_StencilDepthDirty)
@@ -77,92 +63,82 @@ namespace Coffee.UIExtensions
             }
 
             // No mesh to render.
-            var count = activeMeshIndices.CountFast();
-            if (count == 0 || !isActiveAndEnabled || particles.Count == 0)
+            if (_subMeshCount is 0 || !isActiveAndEnabled)
             {
-                canvasRenderer.Clear();
-                ClearPreviousMaterials();
+                cr.Clear();
+                PurgeGarbage();
                 return;
             }
 
             //
-            GetComponents(s_Components);
-            var materialCount = Mathf.Min(8, count);
-            canvasRenderer.materialCount = materialCount;
-            var j = 0;
-            for (var i = 0; i < particles.Count; i++)
+            cr.materialCount = _subMeshCount; // max 2
+            GetComponents(_matModBuf);
             {
-                if (materialCount <= j) break;
-                var ps = particles[i];
-                if (!ps) continue;
-
+                var ps = particle;
                 var r = ps.GetComponent<ParticleSystemRenderer>();
-                r.GetSharedMaterials(s_TempMaterials);
 
-                // Main
-                var index = i * 2;
-                if (activeMeshIndices.Count <= index) break;
-                if (activeMeshIndices[index] && 0 < s_TempMaterials.Count)
+                // Main - always enabled.
                 {
-                    var mat = GetModifiedMaterial(s_TempMaterials[0], ps.GetTextureForSprite());
-                    for (var k = 1; k < s_Components.Count; k++)
-                        mat = s_Components[k].GetModifiedMaterial(mat);
-                    canvasRenderer.SetMaterial(mat, j);
-                    j++;
+                    var mat = GetModifiedMaterial(r.sharedMaterial, ps.GetTextureForSprite());
+                    for (var k = 1; k < _matModBuf.Count; k++) // skip 0, because it's itself.
+                        mat = _matModBuf[k].GetModifiedMaterial(mat);
+                    cr.SetMaterial(mat, 0);
                 }
 
-                // Trails
-                index++;
-                if (activeMeshIndices.Count <= index || materialCount <= j) break;
-                if (activeMeshIndices[index] && 1 < s_TempMaterials.Count)
+                // Trail - trail enabled only if main is enabled
+                if (_subMeshCount > 1)
                 {
-                    var mat = GetModifiedMaterial(s_TempMaterials[1], null);
-                    for (var k = 1; k < s_Components.Count; k++)
-                        mat = s_Components[k].GetModifiedMaterial(mat);
-                    canvasRenderer.SetMaterial(mat, j++);
+                    var mat = GetModifiedMaterial(r.trailMaterial, null);
+                    for (var k = 1; k < _matModBuf.Count; k++) // skip 0, because it's itself.
+                        mat = _matModBuf[k].GetModifiedMaterial(mat);
+                    cr.SetMaterial(mat, 1);
                 }
             }
 
-            ClearPreviousMaterials();
+            PurgeGarbage();
         }
 
         private void ClearMaterials()
         {
-            // Clear mask materials.
-            s_PrevMaskMaterials.AddRange(_maskMaterials);
-            _maskMaterials.Clear();
-
-            // Clear modified materials.
-            s_PrevModifiedMaterials.AddRange(_modifiedMaterials);
-            _modifiedMaterials.Clear();
-
             canvasRenderer.Clear();
-            ClearPreviousMaterials();
+            TransferToGarbage(_maskMats, _modMats);
+            PurgeGarbage();
         }
 
-        private void ClearPreviousMaterials()
+        private static void TransferToGarbage(List<Material> maskMats, List<Material> modMats)
         {
-            foreach (var m in s_PrevMaskMaterials)
+            _garbageMaskMats.AddRange(maskMats);
+            maskMats.Clear();
+            _garbageModMats.AddRange(modMats);
+            modMats.Clear();
+        }
+
+        private static void PurgeGarbage()
+        {
+            foreach (var m in _garbageMaskMats)
                 StencilMaterial.Remove(m);
-            s_PrevMaskMaterials.Clear();
+            _garbageMaskMats.Clear();
 
-            foreach (var m in s_PrevModifiedMaterials)
+            foreach (var m in _garbageModMats)
                 ModifiedMaterial.Remove(m);
-            s_PrevModifiedMaterials.Clear();
+            _garbageModMats.Clear();
         }
 
-        private Material GetModifiedMaterial(Material baseMaterial, Texture2D texture)
+        private Material GetModifiedMaterial(Material baseMaterial, Texture2D? texture)
         {
+            // enable stencil first.
             if (0 < m_StencilDepth)
             {
                 baseMaterial = StencilMaterial.Add(baseMaterial, (1 << m_StencilDepth) - 1, StencilOp.Keep, CompareFunction.Equal, ColorWriteMask.All, (1 << m_StencilDepth) - 1, 0);
-                _maskMaterials.Add(baseMaterial);
+                _maskMats.Add(baseMaterial);
             }
 
-            if (texture == null) return baseMaterial;
-
-            baseMaterial = ModifiedMaterial.Add(baseMaterial, texture, 0);
-            _modifiedMaterials.Add(baseMaterial);
+            // if there's texture, modify material to use it.
+            if (texture)
+            {
+                baseMaterial = ModifiedMaterial.Add(baseMaterial, texture, 0);
+                _modMats.Add(baseMaterial);
+            }
 
             return baseMaterial;
         }
@@ -172,7 +148,7 @@ namespace Coffee.UIExtensions
         /// </summary>
         protected override void OnEnable()
         {
-            activeMeshIndices.Clear();
+            _subMeshCount = 0;
 
             UIParticleUpdater.Register(this);
 
@@ -186,19 +162,33 @@ namespace Coffee.UIExtensions
         {
             // #147: ParticleSystem creates Particles in wrong position during prewarm
             // #148: Particle Sub Emitter not showing when start game
-            var delayToPlay = particles.AnyFast(static ps =>
-            {
-                ps.GetComponentsInChildren(false, s_ParticleSystems);
-                return s_ParticleSystems.AnyFast(p => p.isPlaying && (p.subEmitters.enabled || p.main.prewarm));
-            });
-            s_ParticleSystems.Clear();
-            if (!delayToPlay) yield break;
+            if (!NeedDelayToPlay(this))
+                yield break;
 
-            Stop();
-            Clear();
+            particle.Stop();
+            particle.Clear();
             yield return null;
 
-            Play();
+            particle.Play();
+            yield break;
+
+            static bool NeedDelayToPlay(Component target)
+            {
+                target.GetComponentsInChildren(false, _psBuf);
+
+                for (var i = 0; i < _psBuf.Count; ++i)
+                {
+                    var p = _psBuf[i];
+                    if (p.isPlaying && (p.subEmitters.enabled || p.main.prewarm))
+                    {
+                        _psBuf.Clear();
+                        return true;
+                    }
+                }
+
+                _psBuf.Clear();
+                return false;
+            }
         }
 
         /// <summary>
@@ -209,7 +199,7 @@ namespace Coffee.UIExtensions
             UIParticleUpdater.Unregister(this);
 
             // Destroy object.
-            MeshPool.Return(_bakedMesh);
+            MeshPool.Return(_bakedMesh!); // Rented from OnEnable().
             _bakedMesh = null;
 
             base.OnDisable();
@@ -221,13 +211,12 @@ namespace Coffee.UIExtensions
         /// </summary>
         protected override void UpdateGeometry()
         {
+            // UIParticleUpdater.cs will invoke CanvasRenderer.SetMesh(bakedMesh);
         }
 
         /// <summary>
         /// Callback for when properties have been changed by animation.
         /// </summary>
-        protected override void OnDidApplyAnimationProperties()
-        {
-        }
+        protected override void OnDidApplyAnimationProperties() { }
     }
 }

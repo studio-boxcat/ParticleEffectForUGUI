@@ -1,9 +1,6 @@
 #if UNITY_EDITOR
 #nullable enable
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using Coffee.UIParticleExtensions;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,86 +10,74 @@ namespace Coffee.UIExtensions
     [GraphicPropertyHide(GraphicPropertyFlag.Color | GraphicPropertyFlag.Material | GraphicPropertyFlag.Raycast)]
     public partial class UIParticle : ISelfValidator
     {
-        [ShowInInspector, TableList(HideToolbar = true, IsReadOnly = true, AlwaysExpanded = true)]
-        [CustomContextMenu("Collect", nameof(Editor_CollectParticles))]
-        ParticleSystemEditorControl[] _particles
+        [ShowInInspector, NonSerialized]
+        public ParticleSystem Particle;
+
+        [ShowInInspector]
+        public Material Material
         {
-            get => m_Particles.Select(x => new ParticleSystemEditorControl(x)).ToArray();
-            set => throw new NotSupportedException("Use Collect button to collect particles.");
+            get => Particle.GetComponent<ParticleSystemRenderer>().sharedMaterial;
+            set
+            {
+                Particle.GetComponent<ParticleSystemRenderer>().sharedMaterial = value;
+                Particle.GetComponent<UIParticle>().SetMaterialDirty();
+            }
         }
 
         protected override void Reset()
         {
             base.Reset();
-            Editor_CollectParticles();
+            m_Particles = new[] { GetComponent<ParticleSystem>() };
         }
-
-        void Editor_CollectParticles()
-        {
-            CollectParticles(this, particles);
-        }
-
-        static void CollectParticles(UIParticle target, List<ParticleSystem> buffer)
-        {
-            target.GetComponentsInChildren(true, buffer);
-            buffer.RemoveAll(x => x.GetComponentInParent<UIParticle>(true) != target);
-            buffer.SortForRendering(target.transform);
-        }
-
-        static readonly List<ParticleSystem> _particleSystemBuf = new();
 
         void ISelfValidator.Validate(SelfValidationResult result)
         {
             if (raycastTarget)
                 result.AddError("Raycast Target should be disabled.");
 
-            CollectParticles(this, _particleSystemBuf);
+            using var _ = CompBuf.GetComponents(this, typeof(ParticleSystem), out var particles);
 
-            if (_particleSystemBuf.Count != particles.Count)
+            if (particles.Count > 1)
+                result.AddError("Multiple ParticleSystems are not supported. Please use only one ParticleSystem.");
+
+            var ps = GetComponent<ParticleSystem>();
+            if (ps.RefNeq(particle))
+                result.AddError("The ParticleSystem component is not the same as the one in m_Particles.");
+            if (Mathf.Approximately(ps.transform.lossyScale.z, 0))
+                result.AddError("The zero lossyScale.z will not render particles.");
+
+            var pr = GetComponent<ParticleSystemRenderer>();
+            if (pr.enabled)
+                result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
+            if (!pr.sharedMaterial)
+                result.AddError($"The ParticleSystemRenderer's sharedMaterial is not set. ({ps.name})");
+            // #69: Editor crashes when mesh is set to null when `ParticleSystem.RenderMode = Mesh`
+            if (pr.renderMode == ParticleSystemRenderMode.Mesh && pr.mesh == null)
+                result.AddError("The ParticleSystemRenderer's mesh is null. Please assign a mesh.");
+            // #61: When `ParticleSystem.RenderMode = None`, an error occurs
+            if (pr.renderMode == ParticleSystemRenderMode.None)
+                result.AddError("The ParticleSystemRenderer's renderMode is None. Please set it to Billboard, Mesh, or Stretched Billboard.");
+
+            // shape module
+            var shapeType = ps.shape.shapeType;
+            if (shapeType is ParticleSystemShapeType.Cone)
             {
-                result.AddError($"The number of particles is different. ({particles.Count} != {_particleSystemBuf.Count})");
-                return;
+                if (!IsValidConeShape(ps, out var detail))
+                    result.AddError("The ParticleSystem with Cone shape is not setup properly: " + detail);
             }
 
-            for (var i = 0; i < particles.Count; i++)
+            // texture sheet animation module
+            var tsa = ps.textureSheetAnimation;
+            if (tsa is { mode: ParticleSystemAnimationMode.Sprites, uvChannelMask: 0 })
+                result.AddError($"The uvChannelMask of TextureSheetAnimationModule is not set to UV0. ({ps.name})");
+
+            // trail module
+            if (ps.trails.enabled)
             {
-                var ps = particles[i];
-                if (!ps) continue; // will be checked by RequiredAttribute
-
-                // sequence equals?
-                if (ps.RefNeq(_particleSystemBuf[i]))
-                    result.AddError($"The particle is different. ({ps.name} != {_particleSystemBuf[i].name})");
-
-                var shapeType = ps.shape.shapeType;
-
-                if (shapeType is ParticleSystemShapeType.Cone)
-                {
-                    if (!IsValidConeShape(ps, out var detail))
-                        result.AddError("The ParticleSystem with Cone shape is not setup properly: " + detail);
-                }
+                if (!pr.trailMaterial)
+                    result.AddError($"The ParticleSystemRenderer's trailMaterial is not set. ({ps.name})");
             }
 
-            foreach (var ps in particles)
-            {
-                if (ps.TryGetComponent<ParticleSystemRenderer>(out var psr) && psr.enabled)
-                {
-                    result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
-                    return;
-                }
-
-                var tsa = ps.textureSheetAnimation;
-                if (tsa is { mode: ParticleSystemAnimationMode.Sprites, uvChannelMask: 0 })
-                {
-                    result.AddError($"The uvChannelMask of TextureSheetAnimationModule is not set to UV0. ({ps.name})");
-                    return;
-                }
-
-                if (Mathf.Approximately(ps.transform.lossyScale.z, 0))
-                {
-                    result.AddError("The zero lossyScale.z will not render particles.");
-                    return;
-                }
-            }
             return;
 
             static bool IsValidConeShape(ParticleSystem ps, out string? detail)
@@ -123,28 +108,6 @@ namespace Coffee.UIExtensions
 
                 detail = $"Rotation: {rot}, Shape Rotation: {sr}, Shape Scale: {ss}";
                 return false;
-            }
-        }
-
-        private class ParticleSystemEditorControl
-        {
-            public ParticleSystemEditorControl(ParticleSystem particle)
-            {
-                Particle = particle;
-            }
-
-            [ShowInInspector]
-            public ParticleSystem Particle;
-
-            [ShowInInspector]
-            public Material Material
-            {
-                get => Particle.GetComponent<ParticleSystemRenderer>().sharedMaterial;
-                set
-                {
-                    Particle.GetComponent<ParticleSystemRenderer>().sharedMaterial = value;
-                    Particle.GetComponent<UIParticle>().SetMaterialDirty();
-                }
             }
         }
     }

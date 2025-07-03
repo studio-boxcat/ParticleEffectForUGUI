@@ -1,57 +1,54 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
-using Coffee.UIParticleExtensions;
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEngine.Profiling;
-using UnityEngine.UI;
 
 namespace Coffee.UIExtensions
 {
     internal static class UIParticleUpdater
     {
-        static readonly List<UIParticle> s_ActiveParticles = new();
-        static MaterialPropertyBlock s_Mpb;
-        private static int frameCount = 0;
+        private static readonly List<UIParticle> _particles = new();
+        private static CombineInstance[] _cis = new CombineInstance[2];
+        private static int _frameCount;
 
+        static UIParticleUpdater() => Canvas.willRenderCanvases += Refresh;
 
         public static void Register(UIParticle particle)
         {
-            if (!particle) return;
-            s_ActiveParticles.Add(particle);
+            Assert.IsFalse(_particles.Contains(particle), $"UIParticle {particle.SafeName()} is already registered.");
+            _particles.Add(particle);
         }
 
         public static void Unregister(UIParticle particle)
         {
-            if (!particle) return;
-            s_ActiveParticles.Remove(particle);
-        }
-
-#if UNITY_EDITOR
-        [UnityEditor.InitializeOnLoadMethod]
-#endif
-        [RuntimeInitializeOnLoadMethod]
-        private static void InitializeOnLoad()
-        {
-            MeshHelper.Init();
-
-            Canvas.willRenderCanvases -= Refresh;
-            Canvas.willRenderCanvases += Refresh;
+            Assert.IsTrue(_particles.Contains(particle), $"UIParticle {particle.SafeName()} is not registered.");
+            _particles.Remove(particle);
         }
 
         private static void Refresh()
         {
             // Do not allow it to be called in the same frame.
-            if (frameCount == Time.frameCount) return;
-            frameCount = Time.frameCount;
+            if (_frameCount == Time.frameCount) return;
+            _frameCount = Time.frameCount;
 
             Profiler.BeginSample("[UIParticle] Refresh");
-            for (var i = 0; i < s_ActiveParticles.Count; i++)
+            for (var i = 0; i < _particles.Count; i++)
             {
+                var particle = _particles[i];
+
                 try
                 {
-                    Refresh(s_ActiveParticles[i]);
+                    Profiler.BeginSample("[UIParticle] Bake mesh");
+                    BakeMesh(particle);
+                    Profiler.EndSample();
+
+                    Profiler.BeginSample("[UIParticle] Set mesh to CanvasRenderer");
+                    particle.canvasRenderer.SetMesh(particle.bakedMesh);
+                    Profiler.EndSample();
                 }
-                catch (Exception e)
+                catch (Exception e) // just in case.
                 {
                     Debug.LogException(e);
                 }
@@ -60,169 +57,106 @@ namespace Coffee.UIExtensions
             Profiler.EndSample();
         }
 
-        private static void Refresh(UIParticle particle)
-        {
-            if (!particle || !particle.bakedMesh || !particle.canvas || !particle.canvasRenderer) return;
-
-            Profiler.BeginSample("[UIParticle] Bake mesh");
-            BakeMesh(particle);
-            Profiler.EndSample();
-
-            // if (QualitySettings.activeColorSpace == ColorSpace.Linear)
-            // {
-            //     Profiler.BeginSample("[UIParticle] Modify color space to linear");
-            //     particle.bakedMesh.ModifyColorSpaceToLinear();
-            //     Profiler.EndSample();
-            // }
-
-            Profiler.BeginSample("[UIParticle] Set mesh to CanvasRenderer");
-            particle.canvasRenderer.SetMesh(particle.bakedMesh);
-            Profiler.EndSample();
-        }
-
         private static Matrix4x4 GetScaledMatrix(ParticleSystem particle)
         {
-            var transform = particle.transform;
+            var t = particle.transform;
+
             var main = particle.main;
             var space = main.simulationSpace;
             if (space == ParticleSystemSimulationSpace.Custom && !main.customSimulationSpace)
                 space = ParticleSystemSimulationSpace.Local;
 
-            switch (space)
+            return space switch
             {
-                case ParticleSystemSimulationSpace.Local:
-                    return Matrix4x4.Rotate(transform.rotation).inverse
-                           * Matrix4x4.Scale(transform.lossyScale).inverse;
-                case ParticleSystemSimulationSpace.World:
-                    return transform.worldToLocalMatrix;
-                case ParticleSystemSimulationSpace.Custom:
-                    // #78: Support custom simulation space.
-                    return transform.worldToLocalMatrix
-                           * Matrix4x4.Translate(main.customSimulationSpace.position);
-                default:
-                    return Matrix4x4.identity;
-            }
+                ParticleSystemSimulationSpace.Local => Matrix4x4.Rotate(t.rotation).inverse * Matrix4x4.Scale(t.lossyScale).inverse,
+                ParticleSystemSimulationSpace.World => t.worldToLocalMatrix,
+                // #78: Support custom simulation space.
+                ParticleSystemSimulationSpace.Custom => t.worldToLocalMatrix * Matrix4x4.Translate(main.customSimulationSpace.position),
+                _ => Matrix4x4.identity
+            };
         }
 
         private static void BakeMesh(UIParticle particle)
         {
+            var m = particle.bakedMesh;
+
+            var ps = particle.particle;
+            var pr = ps.GetComponent<ParticleSystemRenderer>();
+            var t = particle.transform;
+
+
+            if (
+                // No particle to render.
+                (!ps.IsAlive() || ps.particleCount == 0)
+                // #102: Do not bake particle system to mesh when the alpha is zero.
+                || Mathf.Approximately(particle.canvasRenderer.GetInheritedAlpha(), 0))
+            {
+                particle.subMeshCount = 0;
+                return;
+            }
+
             // Clear mesh before bake.
             Profiler.BeginSample("[UIParticle] Bake Mesh > Clear mesh before bake");
-            MeshHelper.Clear();
-            particle.bakedMesh.Clear(false);
+            m.Clear(false);
+            Profiler.EndSample();
+
+            // Calc matrix.
+            Profiler.BeginSample("[UIParticle] Bake Mesh > Calc matrix");
+            var matrix = GetScaledMatrix(ps);
             Profiler.EndSample();
 
             // Get camera for baking mesh.
-            var camera = BakingCamera.GetCamera(particle.canvas);
-            var root = particle.transform;
-            var rootMatrix = Matrix4x4.Rotate(root.rotation).inverse
-                             * Matrix4x4.Scale(root.lossyScale).inverse;
+            // var cam = BakingCamera.GetCamera(particle.canvas);
+            var cam = particle.canvas.worldCamera; // use camera directly.
 
-            // Cache position
-            for (var i = 0; i < particle.particles.Count; i++)
+            // Bake main particles.
+            var subMeshCount = 1;
             {
-                Profiler.BeginSample("[UIParticle] Bake Mesh > Push index");
-                MeshHelper.activeMeshIndices.Add(false);
-                MeshHelper.activeMeshIndices.Add(false);
+                Profiler.BeginSample("[UIParticle] Bake Mesh > Bake Main Particles");
+                ref var ci = ref _cis[0];
+                ci.transform = matrix;
+                var subMesh = (ci.mesh ??= MeshPool.CreateDynamicMesh());
+                subMesh.Clear(); // clean mesh first.
+                pr.BakeMesh(subMesh, cam, ParticleSystemBakeMeshOptions.BakeRotationAndScale);
                 Profiler.EndSample();
+            }
 
-                // No particle to render.
-                var currentPs = particle.particles[i];
-                if (!currentPs || !currentPs.IsAlive() || currentPs.particleCount == 0) continue;
-                var r = currentPs.GetComponent<ParticleSystemRenderer>();
-                if (!r.sharedMaterial && !r.trailMaterial) continue;
+            // Bake trails particles.
+            if (ps.trails.enabled)
+            {
+                Profiler.BeginSample("[UIParticle] Bake Mesh > Bake Trails Particles");
 
-                // Calc matrix.
-                Profiler.BeginSample("[UIParticle] Bake Mesh > Calc matrix");
-                var matrix = rootMatrix;
-                if (currentPs.transform != root)
+                ref var ci = ref _cis[1];
+                ci.transform = ps.main.simulationSpace == ParticleSystemSimulationSpace.Local && ps.trails.worldSpace
+                    ? matrix * Matrix4x4.Translate(-t.position)
+                    : matrix;
+
+                var subMesh = (ci.mesh ??= MeshPool.CreateDynamicMesh());
+                subMesh.Clear(); // clean mesh first.
+                try
                 {
-                    if (currentPs.main.simulationSpace == ParticleSystemSimulationSpace.Local)
-                    {
-                        var relativePos = root.InverseTransformPoint(currentPs.transform.position);
-                        matrix = Matrix4x4.Translate(relativePos) * matrix;
-                    }
-                    else
-                    {
-                        matrix *= Matrix4x4.Translate(-root.position);
-                    }
+                    pr.BakeTrailsMesh(subMesh, cam, ParticleSystemBakeMeshOptions.BakeRotationAndScale);
+                    subMeshCount++;
                 }
-                else
+                catch (Exception e)
                 {
-                    matrix = GetScaledMatrix(currentPs);
+                    L.E(e);
                 }
 
                 Profiler.EndSample();
-
-#if UNITY_2018_3_OR_NEWER
-                // #102: Do not bake particle system to mesh when the alpha is zero.
-                if (Mathf.Approximately(particle.canvasRenderer.GetInheritedAlpha(), 0))
-                    continue;
-#endif
-
-                // Bake main particles.
-                if (CanBakeMesh(r))
-                {
-                    Profiler.BeginSample("[UIParticle] Bake Mesh > Bake Main Particles");
-                    var hash = currentPs.GetMaterialHash(false);
-                    if (hash != 0)
-                    {
-                        var m = MeshHelper.GetTemporaryMesh();
-                        r.BakeMesh(m, camera, ParticleSystemBakeMeshOptions.BakeRotationAndScale);
-                        MeshHelper.Push(i * 2, hash, m, matrix);
-                    }
-
-                    Profiler.EndSample();
-                }
-
-                // Bake trails particles.
-                if (currentPs.trails.enabled)
-                {
-                    Profiler.BeginSample("[UIParticle] Bake Mesh > Bake Trails Particles");
-                    var hash = currentPs.GetMaterialHash(true);
-                    if (hash != 0)
-                    {
-                        matrix = currentPs.main.simulationSpace == ParticleSystemSimulationSpace.Local && currentPs.trails.worldSpace
-                            ? matrix * Matrix4x4.Translate(-currentPs.transform.position)
-                            : matrix;
-
-                        var m = MeshHelper.GetTemporaryMesh();
-                        try
-                        {
-                            r.BakeTrailsMesh(m, camera, ParticleSystemBakeMeshOptions.BakeRotationAndScale);
-                            MeshHelper.Push(i * 2 + 1, hash, m, matrix);
-                        }
-                        catch
-                        {
-                            MeshHelper.DiscardTemporaryMesh(m);
-                        }
-                    }
-
-                    Profiler.EndSample();
-                }
             }
 
             // Set active indices.
             Profiler.BeginSample("[UIParticle] Bake Mesh > Set active indices");
-            particle.activeMeshIndices = MeshHelper.activeMeshIndices;
+            particle.subMeshCount = subMeshCount;
             Profiler.EndSample();
 
             // Combine
             Profiler.BeginSample("[UIParticle] Bake Mesh > CombineMesh");
-            MeshHelper.CombineMesh(particle.bakedMesh);
-            MeshHelper.Clear();
+            if (subMeshCount is 1) m.CombineMeshes(_cis[0].mesh, _cis[0].transform);
+            else m.CombineMeshes(_cis, mergeSubMeshes: false, useMatrices: true);
+            m.RecalculateBounds();
             Profiler.EndSample();
-        }
-
-        private static bool CanBakeMesh(ParticleSystemRenderer renderer)
-        {
-            // #69: Editor crashes when mesh is set to null when `ParticleSystem.RenderMode = Mesh`
-            if (renderer.renderMode == ParticleSystemRenderMode.Mesh && renderer.mesh == null) return false;
-
-            // #61: When `ParticleSystem.RenderMode = None`, an error occurs
-            if (renderer.renderMode == ParticleSystemRenderMode.None) return false;
-
-            return true;
         }
     }
 }
