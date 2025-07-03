@@ -10,7 +10,7 @@ namespace Coffee.UIExtensions
     internal static class UIParticleUpdater
     {
         private static readonly List<UIParticle> _particles = new();
-        private static CombineInstance[] _cis = new CombineInstance[2];
+        private static CombineInstance[] _cis = new CombineInstance[2]; // temporary buffer for CombineMeshes.
         private static int _frameCount;
 
         static UIParticleUpdater() => Canvas.willRenderCanvases += Refresh;
