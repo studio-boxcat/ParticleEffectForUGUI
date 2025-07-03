@@ -12,18 +12,18 @@ namespace Coffee.UIExtensions
         [ShowInInspector] // only for editor inspector.
         private Material _material
         {
-            get => particle.GetComponent<ParticleSystemRenderer>().sharedMaterial;
+            get => SourceRenderer.sharedMaterial;
             set
             {
-                particle.GetComponent<ParticleSystemRenderer>().sharedMaterial = value;
-                particle.GetComponent<UIParticle>().SetMaterialDirty();
+                SourceRenderer.sharedMaterial = value;
+                SetMaterialDirty();
             }
         }
 
         protected override void Reset()
         {
             base.Reset();
-            m_Particles = new[] { GetComponent<ParticleSystem>() };
+            Source = GetComponent<ParticleSystem>();
         }
 
         void ISelfValidator.Validate(SelfValidationResult result)
@@ -36,12 +36,12 @@ namespace Coffee.UIExtensions
                 result.AddError("Multiple ParticleSystems are not supported. Please use only one ParticleSystem.");
 
             var ps = (ParticleSystem) particles[0];
-            if (ps.RefNeq(particle))
+            if (ps.RefNeq(Source))
                 result.AddError("The ParticleSystem component is not the same as the one in m_Particles.");
             if (Mathf.Approximately(ps.transform.lossyScale.z, 0))
                 result.AddError("The zero lossyScale.z will not render particles.");
 
-            var pr = GetComponent<ParticleSystemRenderer>();
+            var pr = SourceRenderer;
             if (!pr)
                 result.AddError("The ParticleSystemRenderer component is missing.");
             if (pr.enabled)
@@ -49,7 +49,7 @@ namespace Coffee.UIExtensions
             if (!pr.sharedMaterial)
                 result.AddError($"The ParticleSystemRenderer's sharedMaterial is not set. ({ps.name})");
             // #69: Editor crashes when mesh is set to null when `ParticleSystem.RenderMode = Mesh`
-            if (pr.renderMode == ParticleSystemRenderMode.Mesh && pr.mesh == null)
+            if (pr.renderMode == ParticleSystemRenderMode.Mesh && !pr.mesh)
                 result.AddError("The ParticleSystemRenderer's mesh is null. Please assign a mesh.");
             // #61: When `ParticleSystem.RenderMode = None`, an error occurs
             if (pr.renderMode == ParticleSystemRenderMode.None)

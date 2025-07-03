@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -22,23 +23,32 @@ namespace Coffee.UIExtensions
     [RequireComponent(typeof(ParticleSystemRenderer))]
     public partial class UIParticle : MaskableGraphic
     {
-        [SerializeField, Required, HideInInspector, RequiredListLength(1)]
-        private ParticleSystem[] m_Particles = null!;
+        [SerializeField, Required, HideInInspector, ReadOnly]
+        internal ParticleSystem Source = null!;
+        [NonSerialized]
+        internal Mesh? BakedMesh;
 
-        private Mesh? _bakedMesh;
+        [NonSerialized]
+        private ParticleSystemRenderer? _sourceRenderer;
+        internal ParticleSystemRenderer SourceRenderer => _sourceRenderer ??= Source.GetComponent<ParticleSystemRenderer>();
+
+        private int _subMeshCount;
         private readonly List<Material> _maskMats = new();
         private readonly List<Material> _modMats = new();
-        private int _subMeshCount;
 
         private static readonly List<Material> _garbageMaskMats = new();
         private static readonly List<Material> _garbageModMats = new();
         private static readonly List<IMaterialModifier> _matModBuf = new();
         private static readonly List<ParticleSystem> _psBuf = new();
 
-        [ShowInInspector, Required, ReadOnly]
-        public ParticleSystem particle => m_Particles[0];
-        internal Mesh? bakedMesh => _bakedMesh;
-        public override Material materialForRendering => canvasRenderer.GetMaterial(0);
+        public override Material materialForRendering
+        {
+            get
+            {
+                L.E("[UIParticle] materialForRendering is not supported.");
+                return canvasRenderer.GetMaterial(0);
+            }
+        }
 
         internal void SetSubMeshCount(int value)
         {
@@ -73,8 +83,8 @@ namespace Coffee.UIExtensions
             cr.materialCount = _subMeshCount; // max 2
             GetComponents(_matModBuf);
             {
-                var ps = particle;
-                var r = ps.GetComponent<ParticleSystemRenderer>();
+                var ps = Source;
+                var r = SourceRenderer;
 
                 // Main - always enabled.
                 {
@@ -152,7 +162,7 @@ namespace Coffee.UIExtensions
             UIParticleUpdater.Register(this);
 
             // Create objects.
-            _bakedMesh = MeshPool.Rent();
+            BakedMesh = MeshPool.Rent();
 
             base.OnEnable();
         }
@@ -164,11 +174,11 @@ namespace Coffee.UIExtensions
             if (!NeedDelayToPlay(this))
                 yield break;
 
-            particle.Stop();
-            particle.Clear();
+            Source.Stop();
+            Source.Clear();
             yield return null;
 
-            particle.Play();
+            Source.Play();
             yield break;
 
             static bool NeedDelayToPlay(Component target)
@@ -198,8 +208,8 @@ namespace Coffee.UIExtensions
             UIParticleUpdater.Unregister(this);
 
             // Destroy object.
-            MeshPool.Return(_bakedMesh!); // Rented from OnEnable().
-            _bakedMesh = null;
+            MeshPool.Return(BakedMesh!); // Rented from OnEnable().
+            BakedMesh = null;
 
             base.OnDisable();
             ClearMaterials();

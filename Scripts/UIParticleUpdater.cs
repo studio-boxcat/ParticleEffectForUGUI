@@ -45,7 +45,7 @@ namespace Coffee.UIExtensions
                     Profiler.EndSample();
 
                     Profiler.BeginSample("[UIParticle] Set mesh to CanvasRenderer");
-                    particle.canvasRenderer.SetMesh(particle.bakedMesh);
+                    particle.canvasRenderer.SetMesh(particle.BakedMesh);
                     Profiler.EndSample();
                 }
                 catch (Exception e) // just in case.
@@ -78,13 +78,12 @@ namespace Coffee.UIExtensions
 
         private static void BakeMesh(UIParticle particle)
         {
-            var m = particle.bakedMesh!; // BakeMesh() is called by Refresh() which only handles enabled UIParticle.
+            var m = particle.BakedMesh!; // BakeMesh() is called by Refresh() which only handles enabled UIParticle.
             m.Clear(false); // clear mesh first.
 
-            var ps = particle.particle;
-            var pr = ps.GetComponent<ParticleSystemRenderer>();
+            var ps = particle.Source;
+            var pr = particle.SourceRenderer;
             var t = particle.transform;
-
 
 
             if (
