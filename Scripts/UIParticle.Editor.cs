@@ -67,7 +67,7 @@ namespace Coffee.UIExtensions
                 result.AddError("Multiple ParticleSystems are not supported. Please use only one ParticleSystem.");
 
             var ps = (ParticleSystem) particles[0];
-            if (ps.RefNeq(Source))
+            if (ps.RefNq(Source))
                 result.AddError("The ParticleSystem component is not the same as the one in m_Particles.");
             if (Mathf.Approximately(ps.transform.lossyScale.z, 0))
                 result.AddError("The zero lossyScale.z will not render particles.");
@@ -79,7 +79,7 @@ namespace Coffee.UIExtensions
                 result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
             if (!pr.sharedMaterial)
                 result.AddError($"The ParticleSystemRenderer's sharedMaterial is not set. ({ps.name})");
-            if (pr.sharedMaterial.RefNeq(m_Material))
+            if (pr.sharedMaterial.RefNq(m_Material))
                 result.AddError($"The ParticleSystemRenderer's sharedMaterial is not the same as the one in m_Material. ({ps.name})");
             if (pr.sharedMaterial.mainTexture)
                 result.AddError($"The ParticleSystemRenderer's sharedMaterial's mainTexture is not null. ({pr.sharedMaterial.name})");
