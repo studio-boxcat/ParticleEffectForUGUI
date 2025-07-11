@@ -92,10 +92,14 @@ namespace Coffee.UIExtensions
 
             // shape module
             var shapeType = ps.shape.shapeType;
-            if (shapeType is ParticleSystemShapeType.Cone)
+            if (shapeType is ParticleSystemShapeType.Cone
+                && !IsValidConeShape(ps, out var detail))
             {
-                if (!IsValidConeShape(ps, out var detail))
-                    result.AddError("The ParticleSystem with Cone shape is not setup properly: " + detail);
+                result.AddError("The ParticleSystem with Cone shape is not setup properly: " + detail);
+            }
+            else if (shapeType is ParticleSystemShapeType.Box)
+            {
+                result.AddError("The ParticleSystem with Box shape is not supported, use Rectangle shape instead.");
             }
 
             // texture sheet animation module
