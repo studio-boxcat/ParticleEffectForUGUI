@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 #nullable enable
+using System;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.UI;
@@ -117,6 +118,13 @@ namespace Coffee.UIExtensions
                     result.AddError($"The ParticleSystemRenderer's trailMaterial is not set. ({ps.name})");
             }
 
+            var noise = ps.noise;
+            if (noise.enabled)
+            {
+                if (!noise.separateAxes || !IsZero(noise.strengthZ))
+                    result.AddError($"The ParticleSystem's NoiseModule is not setup properly. Please set separateAxes to true and strengthZ to zero. ({ps.name})");
+            }
+
             return;
 
             static bool IsValidConeShape(ParticleSystem ps, out string? detail)
@@ -147,6 +155,18 @@ namespace Coffee.UIExtensions
 
                 detail = $"Rotation: {rot}, Shape Rotation: {sr}, Shape Scale: {ss}";
                 return false;
+            }
+
+            static bool IsZero(ParticleSystem.MinMaxCurve value)
+            {
+                return value.mode switch
+                {
+                    ParticleSystemCurveMode.Constant => value.constant.EE0(),
+                    ParticleSystemCurveMode.Curve => false, // Cannot determine if the curve is zero without evaluating it.
+                    ParticleSystemCurveMode.TwoCurves => false, // Cannot determine if the curves are zero without evaluating them.
+                    ParticleSystemCurveMode.TwoConstants => value.constantMin.EE0() && value.constantMax.EE0(),
+                    _ => throw new ArgumentOutOfRangeException()
+                };
             }
         }
     }
