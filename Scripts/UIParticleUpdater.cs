@@ -11,21 +11,28 @@ namespace Coffee.UIExtensions
     {
         private static readonly List<UIParticle> _particles = new();
         private static CombineInstance[] _cis = new CombineInstance[2]; // temporary buffer for CombineMeshes.
-        private static int _frameCount;
-
-        static UIParticleUpdater() => Canvas.willRenderCanvases += Refresh;
 
         public static void Register(UIParticle particle)
         {
-            Assert.IsFalse(_particles.Contains(particle), $"UIParticle {particle.SafeName()} is already registered.");
+            Assert.IsFalse(_particles.ContainsRef(particle), $"UIParticle {particle.SafeName()} is already registered.");
+
             _particles.Add(particle);
+            if (_particles.Count is 1)
+                Canvas.willRenderCanvases += (_refresh ??= Refresh);
         }
 
         public static void Unregister(UIParticle particle)
         {
-            Assert.IsTrue(_particles.Contains(particle), $"UIParticle {particle.SafeName()} is not registered.");
+            Assert.IsTrue(_particles.ContainsRef(particle), $"UIParticle {particle.SafeName()} is not registered.");
+            Assert.IsNotNull(_refresh, "UIParticleUpdater is not initialized properly. Please call Register first.");
+
             _particles.Remove(particle);
+            if (_particles.Count is 0)
+                Canvas.willRenderCanvases -= _refresh;
         }
+
+        private static int _frameCount;
+        private static Canvas.WillRenderCanvases? _refresh;
 
         private static void Refresh()
         {
