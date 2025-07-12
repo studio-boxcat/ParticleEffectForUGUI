@@ -93,14 +93,10 @@ namespace Coffee.UIExtensions
 
             // shape module
             var shapeType = ps.shape.shapeType;
-            if (shapeType is ParticleSystemShapeType.Cone
-                && !IsValidConeShape(ps, out var detail))
+            if (shapeType is (ParticleSystemShapeType.Cone or ParticleSystemShapeType.Box)
+                && !IsValid3DShape(ps, out var detail))
             {
-                result.AddError("The ParticleSystem with Cone shape is not setup properly: " + detail);
-            }
-            else if (shapeType is ParticleSystemShapeType.Box)
-            {
-                result.AddError("The ParticleSystem with Box shape is not supported, use Rectangle shape instead.");
+                result.AddError("The ParticleSystem with 3D shape is not setup properly: " + detail);
             }
 
             // texture sheet animation module
@@ -127,7 +123,7 @@ namespace Coffee.UIExtensions
 
             return;
 
-            static bool IsValidConeShape(ParticleSystem ps, out string? detail)
+            static bool IsValid3DShape(ParticleSystem ps, out string? detail)
             {
                 detail = null;
 
@@ -146,9 +142,17 @@ namespace Coffee.UIExtensions
                 }
 
                 // #2: rotated around Z-axis + scale.x == 0
-                if (rot == new Vector3(0, 0, 0)
+                if (rot.EE0()
                     && sr is { y: 90, z: 0 }
-                    && ss is { x : 0 })
+                    && ss is { x: 0 })
+                {
+                    return true;
+                }
+
+                // #3: rotated around X-axis + scale.y == 0
+                if (rot.EE0()
+                    && sr is { x: 90, y: 0, z: 0 }
+                    && ss is { y: 0 })
                 {
                     return true;
                 }
