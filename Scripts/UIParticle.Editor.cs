@@ -21,6 +21,7 @@ namespace Coffee.UIExtensions
                 Source = GetComponent<ParticleSystem>();
                 var main = Source.main;
                 main.startSpeed = 0.3f;
+                main.scalingMode = ParticleSystemScalingMode.Hierarchy;
                 var shape = Source.shape;
                 shape.shapeType = ParticleSystemShapeType.Circle;
                 SourceRenderer.sharedMaterial = m_Material;
