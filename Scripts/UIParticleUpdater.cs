@@ -36,6 +36,21 @@ namespace Coffee.UIExtensions
 
         private static void Refresh()
         {
+#if UNITY_EDITOR
+            if (_skipRefresh)
+            {
+                // #4  0x00000101d78ec4 in ParticleSystemRenderer::BakeMesh(PPtr<Mesh>, PPtr<Camera>, ParticleSystemBakeMeshOptions)
+                // ...
+                // #7  0x000004c70df968 in  Coffee.UIExtensions.UIParticleUpdater:BakeMesh (Coffee.UIExtensions.UIParticle,UnityEngine.Mesh) [{0x352dbded0} + 0x630] [/Users/jameskim/Develop/meow-tower/Packages/com.coffee.ui-particle/Scripts/UIParticleUpdater.cs :: 142u] (0x4c70df338 0x4c70e0238) [0x12f602a80 - Unity Child Domain]
+                // #8  0x000004c70dee30 in  Coffee.UIExtensions.UIParticleUpdater:Refresh () [{0x34d5de4b8} + 0x380] [/Users/jameskim/Develop/meow-tower/Packages/com.coffee.ui-particle/Scripts/UIParticleUpdater.cs :: 66u] (0x4c70deab0 0x4c70df058) [0x12f602a80 - Unity Child Domain]
+                // ...
+                // #25 0x000001021fd808 in PlayerLoopController::ExitPlayMode()
+                // #26 0x000001021f4260 in PlayerLoopController::SetIsPlaying(bool)
+                L.I("[UIParticle] Refresh is skipped to prevent Unity crash.");
+                return;
+            }
+#endif
+
             // Do not allow it to be called in the same frame.
             if (_frameCount == Time.frameCount) return;
             _frameCount = Time.frameCount;
@@ -178,5 +193,23 @@ namespace Coffee.UIExtensions
                 return cam;
             }
         }
+
+#if UNITY_EDITOR
+        private static bool _skipRefresh;
+
+        static UIParticleUpdater() => UnityEditor.EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+
+        private static void OnPlayModeStateChanged(UnityEditor.PlayModeStateChange state)
+        {
+            if (state is UnityEditor.PlayModeStateChange.ExitingPlayMode)
+            {
+                _skipRefresh = true;
+            }
+            else if (state is UnityEditor.PlayModeStateChange.EnteredEditMode)
+            {
+                _skipRefresh = false;
+            }
+        }
+#endif
     }
 }
