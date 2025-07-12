@@ -48,8 +48,7 @@ namespace Coffee.UIExtensions
 
         private void OnInspectorTextureChanged()
         {
-            _mpb!.SetMainTex(_texture);
-            SourceRenderer.SetPropertyBlock(_mpb);
+            UpdateTexture();
             Restart();
         }
 

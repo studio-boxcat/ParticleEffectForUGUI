@@ -37,18 +37,9 @@ namespace Coffee.UIExtensions
 
         public void SetTexture(Texture2D value)
         {
-            if (_texture.RefEq(value))
-                return;
-
+            if (_texture.RefEq(value)) return;
             _texture = value;
-
-            if (_mpb is not null)
-            {
-                _mpb.SetMainTex(value);
-                SourceRenderer.SetPropertyBlock(_mpb);
-            }
-
-            SetMaterialDirty();
+            UpdateTexture();
         }
 
         public override Material material
@@ -63,6 +54,16 @@ namespace Coffee.UIExtensions
             }
         }
 
+        private void UpdateTexture()
+        {
+            if (_mpb is not null)
+            {
+                _mpb.SetMainTex(_texture);
+                SourceRenderer.SetPropertyBlock(_mpb);
+            }
+
+            SetMaterialDirty();
+        }
 
         internal void SetSubMeshCount(int value)
         {
