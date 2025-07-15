@@ -29,95 +29,15 @@ namespace Coffee.UIExtensions
         public override Texture mainTexture => _texture;
 
         [NonSerialized]
-        private ParticleSystemRenderer? _sourceRenderer = null;
+        private ParticleSystemRenderer? _sourceRenderer;
         internal ParticleSystemRenderer SourceRenderer => _sourceRenderer ??= Source.GetComponent<ParticleSystemRenderer>();
 
-        private MaterialPropertyBlock? _mpb;
         private int _subMeshCount;
-
-        public void SetTexture(Texture2D value)
-        {
-            if (_texture.RefEq(value)) return;
-            _texture = value;
-            UpdateTexture();
-        }
-
-        public override Material material
-        {
-            get => base.material;
-            set
-            {
-                var changed = m_Material.RefEq(value);
-                if (!changed) return;
-                base.material = value;
-                SourceRenderer.sharedMaterial = value;
-            }
-        }
-
-        private void UpdateTexture()
-        {
-            if (_mpb is not null)
-            {
-                _mpb.SetMainTex(_texture);
-                SourceRenderer.SetPropertyBlock(_mpb);
-            }
-
-            SetMaterialDirty();
-        }
-
-        internal void SetSubMeshCount(int value)
-        {
-            if (_subMeshCount == value) return;
-            _subMeshCount = value;
-            UpdateMaterial();
-        }
-
-        protected override void UpdateMaterial()
-        {
-            // No mesh to render.
-            if (_subMeshCount is 0 || !isActiveAndEnabled) return;
-
-            // call base.UpdateMaterial() to ensure the main material is set.
-            base.UpdateMaterial();
-
-            // process the trail material.
-            if (_subMeshCount is 2)
-            {
-                var r = SourceRenderer;
-                var mat = r.trailMaterial;
-                // depth is already set by base class. (UpdateMaterial() -> MaterialModifierUtils.ResolveMaterialForRendering() -> GetModifiedMaterial())
-                var d = m_StencilDepth!.Value;
-                if (d is not 0) mat = StencilMaterial.AddMaskable(r.trailMaterial, d); // make maskable.
-                mat = MaterialModifierUtils.ResolveMaterialForRenderingExceptSelf(r, mat); // skip self, since it just for enabling stencil.
-
-                var cr = canvasRenderer;
-                cr.materialCount = 2;
-                cr.SetMaterial(mat, 1);
-            }
-        }
-
-        /// <summary>
-        /// This function is called when the object becomes enabled and active.
-        /// </summary>
-        protected override void OnEnable()
-        {
-            _subMeshCount = 0;
-
-            base.OnEnable();
-
-            UIParticleUpdater.Register(this);
-        }
 
         private static readonly List<ParticleSystem> _psBuf = new();
 
         private IEnumerator Start()
         {
-            if (_mpb is null)
-            {
-                _mpb = GraphicsUtils.CreateMaterialPropertyBlock(mainTexture);
-                SourceRenderer.SetPropertyBlock(_mpb);
-            }
-
             // #147: ParticleSystem creates Particles in wrong position during prewarm
             // #148: Particle Sub Emitter not showing when start game
             if (!NeedDelayToPlay(this))
@@ -149,28 +69,59 @@ namespace Coffee.UIExtensions
             }
         }
 
-        /// <summary>
-        /// This function is called when the behaviour becomes disabled.
-        /// </summary>
-        protected override void OnDisable()
+        private void Update()
         {
-            UIParticleUpdater.Unregister(this);
+            if (!Source.isPlaying) return;
 
-            base.OnDisable();
-            canvasRenderer.Clear();
+            // For particle, we don't need layout, mesh modification or so.
+            var m = MeshPool.Rent();
+            UIParticleUpdater.BakeMesh(this, m, out var subMeshCount);
+            canvasRenderer.SetMesh(m);
+            MeshPool.Return(m);
+
+            if (_subMeshCount != subMeshCount)
+            {
+                _subMeshCount = subMeshCount;
+                UpdateMaterial(); // update material immediately.
+            }
         }
 
-        /// <summary>
-        /// Call to update the geometry of the Graphic onto the CanvasRenderer.
-        /// </summary>
         protected override void UpdateGeometry()
         {
-            // UIParticleUpdater.cs will invoke CanvasRenderer.SetMesh(bakedMesh);
+            // vertex is directly updated in Update().
         }
 
-        /// <summary>
-        /// Callback for when properties have been changed by animation.
-        /// </summary>
-        protected override void OnDidApplyAnimationProperties() { }
+        public void SetTexture(Texture2D value)
+        {
+            if (_texture.RefEq(value)) return;
+            _texture = value;
+            SetMaterialDirty();
+        }
+
+        protected override void UpdateMaterial()
+        {
+            // call base.UpdateMaterial() to ensure the main material is set.
+            base.UpdateMaterial();
+
+            // process the trail material. (need to be tested)
+            if (IsActive() && _subMeshCount is 2)
+            {
+                var r = SourceRenderer;
+                var mat = r.trailMaterial;
+                // depth is already set by base class. (UpdateMaterial() -> MaterialModifierUtils.ResolveMaterialForRendering() -> GetModifiedMaterial())
+                var d = m_StencilDepth!.Value;
+                if (d is not 0) mat = StencilMaterial.AddMaskable(r.trailMaterial, d); // make maskable.
+                mat = MaterialModifierUtils.ResolveMaterialForRenderingExceptSelf(r, mat); // skip self, since it just for enabling stencil.
+
+                var cr = canvasRenderer;
+                cr.materialCount = 2;
+                cr.SetMaterial(mat, 1);
+            }
+        }
+
+        protected override void OnDidApplyAnimationProperties()
+        {
+            // do nothing. ParticleSystem itself handles animation properties.
+        }
     }
 }

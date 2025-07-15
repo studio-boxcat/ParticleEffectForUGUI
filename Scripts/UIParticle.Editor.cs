@@ -24,14 +24,8 @@ namespace Coffee.UIExtensions
                 main.scalingMode = ParticleSystemScalingMode.Hierarchy;
                 var shape = Source.shape;
                 shape.shapeType = ParticleSystemShapeType.Circle;
-                SourceRenderer.sharedMaterial = m_Material;
             }
         }
-
-        [ShowInInspector, FoldoutGroup("Advanced"), PropertyOrder(100)]
-        private Material _partialMainMaterial => SourceRenderer.sharedMaterial;
-        [ShowInInspector, FoldoutGroup("Advanced"), PropertyOrder(100)]
-        private Material _partialTrailMaterial => SourceRenderer.trailMaterial;
 
         [Button(DirtyOnClick = false), ButtonGroup(order: 1000)]
         private void Restart()
@@ -48,13 +42,12 @@ namespace Coffee.UIExtensions
 
         private void OnInspectorTextureChanged()
         {
-            UpdateTexture();
+            SetMaterialDirty();
             Restart();
         }
 
         protected override void OnInspectorMaterialChanged()
         {
-            SourceRenderer.sharedMaterial = m_Material;
             Restart();
         }
 
@@ -79,11 +72,7 @@ namespace Coffee.UIExtensions
             if (pr.enabled)
                 result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
             if (!pr.sharedMaterial)
-                result.AddError($"The ParticleSystemRenderer's sharedMaterial is not set. ({ps.name})");
-            if (pr.sharedMaterial.RefNq(m_Material))
-                result.AddError($"The ParticleSystemRenderer's sharedMaterial is not the same as the one in m_Material. ({ps.name})");
-            if (pr.sharedMaterial.mainTexture)
-                result.AddError($"The ParticleSystemRenderer's sharedMaterial's mainTexture is not null. ({pr.sharedMaterial.name})");
+                result.AddError($"The ParticleSystemRenderer's sharedMaterial must be null.");
             // #69: Editor crashes when mesh is set to null when `ParticleSystem.RenderMode = Mesh`
             if (pr.renderMode == ParticleSystemRenderMode.Mesh && !pr.mesh)
                 result.AddError("The ParticleSystemRenderer's mesh is null. Please assign a mesh.");
@@ -104,21 +93,21 @@ namespace Coffee.UIExtensions
             if (tsa.enabled)
             {
                 if (tsa.mode is not ParticleSystemAnimationMode.Grid)
-                    result.AddError($"The ParticleSystem's TextureSheetAnimationModule mode is not set to Grid. ({ps.name})");
+                    result.AddError($"The ParticleSystem's TextureSheetAnimationModule mode is not set to Grid.");
             }
 
             // trail module
             if (ps.trails.enabled)
             {
                 if (!pr.trailMaterial)
-                    result.AddError($"The ParticleSystemRenderer's trailMaterial is not set. ({ps.name})");
+                    result.AddError($"The ParticleSystemRenderer's trailMaterial is required by UpdateMaterial().");
             }
 
             var noise = ps.noise;
             if (noise.enabled)
             {
                 if (!noise.separateAxes || !IsZero(noise.strengthZ))
-                    result.AddError($"The ParticleSystem's NoiseModule is not setup properly. Please set separateAxes to true and strengthZ to zero. ({ps.name})");
+                    result.AddError($"The ParticleSystem's NoiseModule is not setup properly. Please set separateAxes to true and strengthZ to zero.");
             }
 
             return;
