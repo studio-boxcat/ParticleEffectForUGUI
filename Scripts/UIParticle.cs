@@ -69,6 +69,9 @@ namespace Coffee.UIExtensions
             }
         }
 
+        // Canvas.willRenderCanvases fires much later in the same frame, just before Unity starts drawing the UI.
+        // https://docs.unity3d.com/6000.1/Documentation/Manual/execution-order.html
+        // https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Canvas-willRenderCanvases.html
         private void Update()
         {
             if (!Source.isPlaying) return;
