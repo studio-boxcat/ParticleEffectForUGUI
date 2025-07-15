@@ -147,7 +147,8 @@ namespace Coffee.UIExtensions
                 ref var ci = ref _cis[0];
                 ci.transform = matrix;
                 var subMesh = (ci.mesh ??= MeshPool.CreateDynamicMesh());
-                subMesh.Clear(); // clean mesh first.
+                // XXX: BakeMesh() will overwrite the mesh data.
+                // subMesh.Clear(); // clean mesh first.
                 pr.BakeMesh(subMesh, cam, ParticleSystemBakeMeshOptions.BakeRotationAndScale);
                 Profiler.EndSample();
             }
@@ -163,7 +164,8 @@ namespace Coffee.UIExtensions
                     : matrix;
 
                 var subMesh = (ci.mesh ??= MeshPool.CreateDynamicMesh());
-                subMesh.Clear(); // clean mesh first.
+                // XXX: BakeMesh() will overwrite the mesh data.
+                // subMesh.Clear(); // clean mesh first.
                 try
                 {
                     pr.BakeTrailsMesh(subMesh, cam, ParticleSystemBakeMeshOptions.BakeRotationAndScale);
@@ -197,6 +199,11 @@ namespace Coffee.UIExtensions
                 if (!cam && Editing.Yes(particle)) cam = Camera.current;
 #endif
                 return cam;
+            }
+
+            static void ClearMesh(Mesh mesh)
+            {
+                mesh.Clear(keepVertexLayout: false);
             }
         }
 
