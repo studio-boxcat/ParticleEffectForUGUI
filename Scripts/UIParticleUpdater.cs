@@ -18,7 +18,10 @@ namespace Coffee.UIExtensions
 
             _particles.Add(particle);
             if (_particles.Count is 1)
+            {
+                L.I("[UIParticle] Registering UIParticleUpdater.");
                 Canvas.willRenderCanvases += (_refresh ??= Refresh);
+            }
         }
 
         public static void Unregister(UIParticle particle)
@@ -28,7 +31,10 @@ namespace Coffee.UIExtensions
 
             _particles.Remove(particle);
             if (_particles.Count is 0)
+            {
+                L.I("[UIParticle] Unregistering UIParticleUpdater.");
                 Canvas.willRenderCanvases -= _refresh;
+            }
         }
 
         private static int _frameCount;
