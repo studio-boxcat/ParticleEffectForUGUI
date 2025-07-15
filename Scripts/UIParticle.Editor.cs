@@ -133,13 +133,28 @@ namespace Coffee.UIExtensions
                 var sr = shape.rotation; // shape rotation
                 var ss = shape.scale; // shape scale
 
+                // one of particle system and shape rotation must be zero.
+                // if both are not zero, it make way too complex to handle.
+                if (!(rot.EE0() || sr.EE0()))
+                {
+                    return false;
+                }
+
                 // #1: heading up or down + scale.y == 0
-                if ((((rot.x % 180f) is 90f or -90f) && rot is { y: 0, z: 0 })
+                if ((IsPerpendicular(rot.x) && rot is { y: 0, z: 0 })
                     && sr is { x: 0, z: 0 }
-                    && ss == new Vector3(1, 0, 1))
+                    && ss is { y: 0 })
                 {
                     return true;
                 }
+
+                if (rot.EE0()
+                    && (IsPerpendicular(sr.x) && sr is { y: 0, z: 0 })
+                    && ss is { y: 0 })
+                {
+                    return true;
+                }
+
 
                 // #2: rotated around Z-axis + scale.x == 0
                 if (rot.EE0()
@@ -172,6 +187,8 @@ namespace Coffee.UIExtensions
                     _ => throw new ArgumentOutOfRangeException()
                 };
             }
+
+            static bool IsPerpendicular(float rot) => rot % 180f is 90f or -90f;
         }
     }
 }
