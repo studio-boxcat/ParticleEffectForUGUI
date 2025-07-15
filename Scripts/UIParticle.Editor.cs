@@ -71,8 +71,8 @@ namespace Coffee.UIExtensions
                 result.AddError("The ParticleSystemRenderer component is missing.");
             if (pr.enabled)
                 result.AddError($"The ParticleSystemRenderer of {ps.name} is enabled.");
-            if (!pr.sharedMaterial)
-                result.AddError($"The ParticleSystemRenderer's sharedMaterial must be null.");
+            // if (pr.sharedMaterial)
+            //     result.AddError($"The ParticleSystemRenderer's sharedMaterial must be null.");
             // #69: Editor crashes when mesh is set to null when `ParticleSystem.RenderMode = Mesh`
             if (pr.renderMode == ParticleSystemRenderMode.Mesh && !pr.mesh)
                 result.AddError("The ParticleSystemRenderer's mesh is null. Please assign a mesh.");

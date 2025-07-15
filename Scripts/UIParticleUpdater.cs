@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEngine.Profiling;
 
 namespace Coffee.UIExtensions
@@ -11,6 +12,8 @@ namespace Coffee.UIExtensions
 
         public static void BakeMesh(UIParticle particle, Mesh mesh, out int subMeshCount)
         {
+            Assert.IsTrue(mesh.vertexCount is 0, "UIParticleUpdater.BakeMesh() requires an empty mesh to bake particles.");
+
             var ps = particle.Source;
             var pr = particle.SourceRenderer;
             var t = particle.transform;
@@ -27,7 +30,6 @@ namespace Coffee.UIExtensions
             }
 
             // Get camera for baking mesh.
-            // var cam = BakingCamera.GetCamera(particle.canvas);
             var cam = ResolveCamera(particle);
             if (!cam)
             {
