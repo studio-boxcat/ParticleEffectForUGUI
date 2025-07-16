@@ -24,7 +24,8 @@ namespace Coffee.UIExtensions
         [SerializeField, Required, HideInInspector, ReadOnly]
         internal ParticleSystem Source = null!;
 
-        [SerializeField, Required, AssetsOnly, OnValueChanged("OnInspectorTextureChanged")]
+        [SerializeField, Required, AssetsOnly]
+        [TextureTypeDefault, OnValueChanged("OnInspectorTextureChanged")]
         private Texture2D _texture = null!;
         public override Texture mainTexture => _texture;
 

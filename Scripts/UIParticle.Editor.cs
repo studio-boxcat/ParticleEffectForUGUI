@@ -2,6 +2,7 @@
 #nullable enable
 using System;
 using Sirenix.OdinInspector;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -56,11 +57,12 @@ namespace Coffee.UIExtensions
             if (raycastTarget)
                 result.AddError("Raycast Target should be disabled.");
 
-            using var _ = CompBuf.GetComponents(this, typeof(ParticleSystem), out var particles);
-            if (particles.Count > 1)
-                result.AddError("Multiple ParticleSystems are not supported. Please use only one ParticleSystem.");
+            if (this.SingleComponent(out ParticleSystem ps) is false)
+            {
+                result.AddError("ParticleSystem not found or multiple.");
+                return;
+            }
 
-            var ps = (ParticleSystem) particles[0];
             if (ps.RefNq(Source))
                 result.AddError("The ParticleSystem component is not the same as the one in m_Particles.");
             if (Mathf.Approximately(ps.transform.lossyScale.z, 0))
