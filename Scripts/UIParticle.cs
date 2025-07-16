@@ -93,7 +93,7 @@ namespace Coffee.UIExtensions
 
             // For particle, we don't need layout, mesh modification or so.
             var m = MeshPool.Rent();
-            UIParticleUpdater.BakeMesh(this, m, out var subMeshCount);
+            UIParticleBaker.BakeMesh(this, m, out var subMeshCount);
             canvasRenderer.SetMesh(m);
             MeshPool.Return(m);
 

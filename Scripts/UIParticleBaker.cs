@@ -6,13 +6,13 @@ using UnityEngine.Profiling;
 
 namespace Coffee.UIExtensions
 {
-    internal static class UIParticleUpdater
+    internal static class UIParticleBaker
     {
         private static CombineInstance[] _cis = new CombineInstance[2]; // temporary buffer for CombineMeshes.
 
         public static void BakeMesh(UIParticle particle, Mesh mesh, out int subMeshCount)
         {
-            Assert.IsTrue(mesh.vertexCount is 0, "UIParticleUpdater.BakeMesh() requires an empty mesh to bake particles.");
+            Assert.IsTrue(mesh.vertexCount is 0, "UIParticleBaker.BakeMesh() requires an empty mesh to bake particles.");
 
             var ps = particle.Source;
             var pr = particle.SourceRenderer;
