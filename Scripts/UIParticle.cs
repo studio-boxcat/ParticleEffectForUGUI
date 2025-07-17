@@ -96,8 +96,8 @@ namespace Coffee.UIExtensions
                 || ps.particleCount == 0 // no particles to render.
                 || Mathf.Approximately(cr.GetInheritedAlpha(), 0)) // #102: Do not bake particle system to mesh when the alpha is zero.
             {
-                L.I($"[UIParticle] ParticleSystem is not alive or not playing or no particles: " +
-                    $"isAlive={ps.IsAlive()}, isPlaying={ps.isPlaying}, particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
+                // L.I($"[UIParticle] ParticleSystem is not alive or not playing or no particles: " +
+                //     $"isAlive={ps.IsAlive()}, isPlaying={ps.isPlaying}, particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
                 return;
             }
 
