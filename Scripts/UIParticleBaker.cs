@@ -10,33 +10,18 @@ namespace Coffee.UIExtensions
     {
         private static CombineInstance[] _cis = new CombineInstance[2]; // temporary buffer for CombineMeshes.
 
-        public static void BakeMesh(UIParticle particle, Mesh mesh, out int subMeshCount)
+        public static void BakeMesh(UIParticle particle, Mesh mesh, Camera cam, out int subMeshCount)
         {
             Assert.IsTrue(mesh.vertexCount is 0, "UIParticleBaker.BakeMesh() requires an empty mesh to bake particles.");
 
             var ps = particle.Source;
+            Assert.IsTrue(ps.IsAlive() || ps.isPlaying, "UIParticleBaker.BakeMesh() requires a ParticleSystem that is alive to bake particles.");
+            Assert.IsTrue(ps.particleCount > 0, "UIParticleBaker.BakeMesh() requires a ParticleSystem that has particles to bake.");
+            Assert.IsFalse(particle.canvasRenderer.GetInheritedAlpha().Approximately(0), "UIParticleBaker.BakeMesh() requires a ParticleSystem that has non-zero alpha to bake particles.");
+
             var pr = particle.SourceRenderer;
             var t = particle.transform;
 
-
-            if (
-                // No particle to render.
-                (!ps.IsAlive() || ps.particleCount == 0)
-                // #102: Do not bake particle system to mesh when the alpha is zero.
-                || Mathf.Approximately(particle.canvasRenderer.GetInheritedAlpha(), 0))
-            {
-                subMeshCount = 0;
-                return;
-            }
-
-            // Get camera for baking mesh.
-            var cam = ResolveCamera(particle);
-            if (!cam)
-            {
-                L.E($"UIParticle {particle.SafeName()} requires a camera to bake mesh.");
-                subMeshCount = 0;
-                return;
-            }
 
             // Calc matrix.
             Profiler.BeginSample("[UIParticle] Bake Mesh > Calc matrix");
@@ -88,16 +73,6 @@ namespace Coffee.UIExtensions
             else mesh.CombineMeshes(_cis, mergeSubMeshes: false, useMatrices: true);
             mesh.RecalculateBounds();
             Profiler.EndSample();
-            return;
-
-            static Camera? ResolveCamera(UIParticle particle)
-            {
-                var cam = particle.canvas.worldCamera; // use camera directly.
-#if UNITY_EDITOR
-                if (!cam && Editing.Yes(particle)) cam = Camera.current;
-#endif
-                return cam;
-            }
         }
 
         private static Matrix4x4 GetScaledMatrix(ParticleSystem particle)

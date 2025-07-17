@@ -90,18 +90,46 @@ namespace Coffee.UIExtensions
             }
 #endif
 
-            if (!Source.isPlaying) return;
+            var ps = Source;
+            var cr = canvasRenderer;
+            if ((!ps.IsAlive() && !ps.isPlaying) // not playing. for timeline, isPlaying is always false but IsAlive() returns true only when the ParticleSystem needs to be updated.
+                || ps.particleCount == 0 // no particles to render.
+                || Mathf.Approximately(cr.GetInheritedAlpha(), 0)) // #102: Do not bake particle system to mesh when the alpha is zero.
+            {
+                L.I($"[UIParticle] ParticleSystem is not alive or not playing or no particles: " +
+                    $"isAlive={ps.IsAlive()}, isPlaying={ps.isPlaying}, particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
+                return;
+            }
+
+            // Get camera for baking mesh.
+            var cam = ResolveCamera(this);
+            if (!cam)
+            {
+                L.E($"UIParticle {this.SafeName()} requires a camera to bake mesh.");
+                return;
+            }
+
 
             // For particle, we don't need layout, mesh modification or so.
             var m = MeshPool.Rent();
-            UIParticleBaker.BakeMesh(this, m, out var subMeshCount);
-            canvasRenderer.SetMesh(m);
+            UIParticleBaker.BakeMesh(this, m, cam!, out var subMeshCount);
+            cr.SetMesh(m);
             MeshPool.Return(m);
 
             if (_subMeshCount != subMeshCount)
             {
                 _subMeshCount = subMeshCount;
                 UpdateMaterial(); // update material immediately.
+            }
+            return;
+
+            static Camera? ResolveCamera(UIParticle particle)
+            {
+                var cam = particle.canvas.worldCamera; // use camera directly.
+#if UNITY_EDITOR
+                if (!cam && Editing.Yes(particle)) cam = Camera.current;
+#endif
+                return cam;
             }
         }
 
