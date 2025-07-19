@@ -101,6 +101,9 @@ namespace Coffee.UIExtensions
                 return;
             }
 
+            // L.I($"[UIParticle] Update() is called. Baking mesh: ps={ps.name}, alive={ps.IsAlive()}, playing={ps.isPlaying}, " +
+            //     $"particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
+
             // Get camera for baking mesh.
             var cam = ResolveCamera(this);
             if (!cam)
