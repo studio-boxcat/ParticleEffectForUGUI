@@ -122,7 +122,10 @@ namespace Coffee.UIExtensions
             if (_subMeshCount != subMeshCount)
             {
                 _subMeshCount = subMeshCount;
-                SetMaterialDirty(); // XXX: UpdateGeometry() is called just before UpdateMaterial().
+                // XXX: avoid SetMaterialDirty() enqueue this graphic again to the CanvasUpdateRegistry.
+                // UpdateGeometry() is called by Graphic.Rebuild() which is called by CanvasUpdateRegistry.PerformUpdate().
+                // changing subMeshCount is super rare case anyway.
+                UpdateMaterial();
             }
             return;
 
