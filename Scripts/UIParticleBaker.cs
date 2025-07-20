@@ -10,18 +10,13 @@ namespace Coffee.UIExtensions
     {
         private static CombineInstance[] _cis = new CombineInstance[2]; // temporary buffer for CombineMeshes.
 
-        public static void BakeMesh(UIParticle particle, Mesh mesh, Camera cam, out int subMeshCount)
+        public static void BakeMesh(
+            ParticleSystem ps, ParticleSystemRenderer pr,
+            Mesh mesh, Camera cam, out int subMeshCount)
         {
             Assert.IsTrue(mesh.vertexCount is 0, "UIParticleBaker.BakeMesh() requires an empty mesh to bake particles.");
-
-            var ps = particle.Source;
             Assert.IsTrue(ps.IsAlive() || ps.isPlaying, "UIParticleBaker.BakeMesh() requires a ParticleSystem that is alive to bake particles.");
             Assert.IsTrue(ps.particleCount > 0, "UIParticleBaker.BakeMesh() requires a ParticleSystem that has particles to bake.");
-            Assert.IsFalse(particle.canvasRenderer.GetInheritedAlpha().Approximately(0), "UIParticleBaker.BakeMesh() requires a ParticleSystem that has non-zero alpha to bake particles.");
-
-            var pr = particle.SourceRenderer;
-            var t = particle.transform;
-
 
             // Calc matrix.
             Profiler.BeginSample("[UIParticle] Bake Mesh > Calc matrix");
@@ -48,7 +43,7 @@ namespace Coffee.UIExtensions
 
                 ref var ci = ref _cis[1];
                 ci.transform = ps.main.simulationSpace == ParticleSystemSimulationSpace.Local && ps.trails.worldSpace
-                    ? matrix * Matrix4x4.Translate(-t.position)
+                    ? matrix * Matrix4x4.Translate(-pr.transform.position)
                     : matrix;
 
                 var subMesh = (ci.mesh ??= MeshPool.CreateDynamicMesh());

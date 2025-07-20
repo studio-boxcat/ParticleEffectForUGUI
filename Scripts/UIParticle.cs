@@ -53,7 +53,7 @@ namespace Coffee.UIExtensions
 
             static bool NeedDelayToPlay(Component target)
             {
-                target.GetComponentsInChildren(false, _psBuf);
+                target.GetComponentsInChildren(includeInactive: false, _psBuf); // mostly no children in the UIParticle.
 
                 for (var i = 0; i < _psBuf.Count; ++i)
                 {
@@ -70,10 +70,9 @@ namespace Coffee.UIExtensions
             }
         }
 
-        // Canvas.willRenderCanvases fires much later in the same frame, just before Unity starts drawing the UI.
-        // https://docs.unity3d.com/6000.1/Documentation/Manual/execution-order.html
-        // https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Canvas-willRenderCanvases.html
-        private void Update()
+        private void Update() => SetVerticesDirty(); // no good way to detect particle system update, so just always mark as dirty.
+
+        protected override void UpdateGeometry()
         {
 #if UNITY_EDITOR
             if (_skipUpdate)
@@ -98,6 +97,7 @@ namespace Coffee.UIExtensions
             {
                 // L.I($"[UIParticle] ParticleSystem is not alive or not playing or no particles: " +
                 //     $"isAlive={ps.IsAlive()}, isPlaying={ps.isPlaying}, particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
+                cr.SetMesh(MeshPool.Empty);
                 return;
             }
 
@@ -109,20 +109,20 @@ namespace Coffee.UIExtensions
             if (!cam)
             {
                 L.E($"UIParticle {this.SafeName()} requires a camera to bake mesh.");
-                return;
+                return; // should I keep the previous mesh?
             }
 
 
             // For particle, we don't need layout, mesh modification or so.
             var m = MeshPool.Rent();
-            UIParticleBaker.BakeMesh(this, m, cam!, out var subMeshCount);
+            UIParticleBaker.BakeMesh(ps, SourceRenderer, m, cam!, out var subMeshCount);
             cr.SetMesh(m);
             MeshPool.Return(m);
 
             if (_subMeshCount != subMeshCount)
             {
                 _subMeshCount = subMeshCount;
-                UpdateMaterial(); // update material immediately.
+                SetMaterialDirty(); // XXX: UpdateGeometry() is called just before UpdateMaterial().
             }
             return;
 
@@ -134,11 +134,6 @@ namespace Coffee.UIExtensions
 #endif
                 return cam;
             }
-        }
-
-        protected override void UpdateGeometry()
-        {
-            // vertex is directly updated in Update().
         }
 
         public void SetTexture(Texture2D value)
@@ -154,6 +149,7 @@ namespace Coffee.UIExtensions
             base.UpdateMaterial();
 
             // process the trail material. (need to be tested)
+            // TODO: must remove the old stencil material.
             if (IsActive() && _subMeshCount is 2)
             {
                 var r = SourceRenderer;
