@@ -105,10 +105,10 @@ namespace Coffee.UIExtensions
             //     $"particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
 
             // Get camera for baking mesh.
-            var cam = ResolveCamera(this);
-            if (!cam)
+            var cam = CanvasUtils.ResolveWorldCamera(this)!;
+            if (!cam) // is this necessary?
             {
-                L.E($"UIParticle {this.SafeName()} requires a camera to bake mesh.");
+                L.W($"[UIParticle] No camera found: {name}");
                 return; // should I keep the previous mesh?
             }
 
@@ -126,16 +126,6 @@ namespace Coffee.UIExtensions
                 // UpdateGeometry() is called by Graphic.Rebuild() which is called by CanvasUpdateRegistry.PerformUpdate().
                 // changing subMeshCount is super rare case anyway.
                 UpdateMaterial();
-            }
-            return;
-
-            static Camera? ResolveCamera(UIParticle particle)
-            {
-                var cam = particle.canvas.worldCamera; // use camera directly.
-#if UNITY_EDITOR
-                if (!cam && Editing.Yes(particle)) cam = Camera.current;
-#endif
-                return cam;
             }
         }
 
