@@ -32,12 +32,6 @@ namespace Coffee.UIExtensions
 
         private int _subMeshCount;
 
-        private void Start()
-        {
-            Source.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            Source.Play();
-        }
-
         private void Update() => SetVerticesDirty(); // no good way to detect particle system update, so just always mark as dirty.
 
         protected override void UpdateGeometry()

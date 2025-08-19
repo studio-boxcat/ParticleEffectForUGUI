@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 #nullable enable
 using System;
-using System.Linq;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.UI;
@@ -73,8 +72,6 @@ namespace Coffee.UIExtensions
                 result.AddError("The ParticleSystem component is not the same as the one in m_Particles.");
             if (Mathf.Approximately(ps.transform.lossyScale.z, 0))
                 result.AddError("The zero lossyScale.z will not render particles.");
-            if (IsSubEmittersEnabledWhileMainPrewarm(ps))
-                result.AddError("Sub Emitters or Main Prewarm is enabled while the main ParticleSystem is not playing. This is untested and may cause issues.");
 
             // validate renderer
             var pr = SourceRenderer;
@@ -123,13 +120,6 @@ namespace Coffee.UIExtensions
             }
 
             return;
-
-            static bool IsSubEmittersEnabledWhileMainPrewarm(Component target)
-            {
-                using var _ = ListPools.ParticleSystem.Rent(out var psBuf);
-                target.GetComponentsInChildren(includeInactive: true, psBuf);
-                return psBuf.Any(static ps => ps.subEmitters.enabled || ps.main.prewarm);
-            }
 
             static bool IsValid3DShape(ParticleSystem ps, out string? detail)
             {
