@@ -1,7 +1,7 @@
 #nullable enable
+// #define VERBOSE
 using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Sirenix.OdinInspector;
 using UnityEngine;
@@ -32,39 +32,10 @@ namespace Coffee.UIExtensions
 
         private int _subMeshCount;
 
-        private static readonly List<ParticleSystem> _psBuf = new();
-
-        private IEnumerator Start()
+        private void Start()
         {
-            // #147: ParticleSystem creates Particles in wrong position during prewarm
-            // #148: Particle Sub Emitter not showing when start game
-            if (!NeedDelayToPlay(this))
-                yield break;
-
-            Source.Stop();
-            Source.Clear();
-            yield return null;
-
+            Source.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmittingAndClear);
             Source.Play();
-            yield break;
-
-            static bool NeedDelayToPlay(Component target)
-            {
-                target.GetComponentsInChildren(includeInactive: false, _psBuf); // mostly no children in the UIParticle.
-
-                for (var i = 0; i < _psBuf.Count; ++i)
-                {
-                    var p = _psBuf[i];
-                    if (p.isPlaying && (p.subEmitters.enabled || p.main.prewarm))
-                    {
-                        _psBuf.Clear();
-                        return true;
-                    }
-                }
-
-                _psBuf.Clear();
-                return false;
-            }
         }
 
         private void Update() => SetVerticesDirty(); // no good way to detect particle system update, so just always mark as dirty.
@@ -92,14 +63,14 @@ namespace Coffee.UIExtensions
                 || ps.particleCount == 0 // no particles to render.
                 || Mathf.Approximately(cr.GetInheritedAlpha(), 0)) // #102: Do not bake particle system to mesh when the alpha is zero.
             {
-                // L.I($"[UIParticle] ParticleSystem is not alive or not playing or no particles: " +
-                //     $"isAlive={ps.IsAlive()}, isPlaying={ps.isPlaying}, particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
+                V($"[UIParticle] ParticleSystem is not alive or not playing or no particles: " +
+                  $"isAlive={ps.IsAlive()}, isPlaying={ps.isPlaying}, particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
                 cr.SetMesh(MeshPool.Empty);
                 return;
             }
 
-            // L.I($"[UIParticle] Update() is called. Baking mesh: ps={ps.name}, alive={ps.IsAlive()}, playing={ps.isPlaying}, " +
-            //     $"particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
+            V($"[UIParticle] Update() is called. Baking mesh: ps={ps.name}, alive={ps.IsAlive()}, playing={ps.isPlaying}, " +
+                $"particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
 
             // Get camera for baking mesh.
             var cam = CanvasUtils.ResolveWorldCamera(this)!;
@@ -159,6 +130,9 @@ namespace Coffee.UIExtensions
         {
             // do nothing. ParticleSystem itself handles animation properties.
         }
+
+        [Conditional("VERBOSE")]
+        private static void V(string message) => L.I(message);
 
 #if UNITY_EDITOR
         private static bool _skipUpdatePlayModeChanged;

@@ -1,8 +1,8 @@
 #if UNITY_EDITOR
 #nullable enable
 using System;
+using System.Linq;
 using Sirenix.OdinInspector;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,11 +11,17 @@ namespace Coffee.UIExtensions
     [GraphicPropertyHide(GraphicPropertyFlag.Color | GraphicPropertyFlag.Raycast)]
     public partial class UIParticle : ISelfValidator
     {
-        // editor only initializer.
         private void Awake()
         {
-            if (!_texture) _texture = AssetDatabaseUtils.LoadTextureWithGUID("0311aa56f4c25498ebd31febe866c3cf")!; // Particle_Bling_Y
-            if (!m_Material) m_Material = AssetDatabaseUtils.LoadMaterialWithGUID("d8984a0a3a8bb45d48946817c2152326");
+            // editor only initializer.
+            if (Editing.No(this))
+                return;
+
+            if (!_texture)
+                _texture = AssetDatabaseUtils.LoadTextureWithGUID("0311aa56f4c25498ebd31febe866c3cf")!; // Particle_Bling_Y
+
+            if (!m_Material)
+                m_Material = AssetDatabaseUtils.LoadMaterialWithGUID("d8984a0a3a8bb45d48946817c2152326");
 
             if (!Source)
             {
@@ -67,7 +73,10 @@ namespace Coffee.UIExtensions
                 result.AddError("The ParticleSystem component is not the same as the one in m_Particles.");
             if (Mathf.Approximately(ps.transform.lossyScale.z, 0))
                 result.AddError("The zero lossyScale.z will not render particles.");
+            if (IsSubEmittersEnabledWhileMainPrewarm(ps))
+                result.AddError("Sub Emitters or Main Prewarm is enabled while the main ParticleSystem is not playing. This is untested and may cause issues.");
 
+            // validate renderer
             var pr = SourceRenderer;
             if (!pr)
                 result.AddError("The ParticleSystemRenderer component is missing.");
@@ -105,6 +114,7 @@ namespace Coffee.UIExtensions
                     result.AddError($"The ParticleSystemRenderer's trailMaterial is required by UpdateMaterial().");
             }
 
+            // noise module
             var noise = ps.noise;
             if (noise.enabled)
             {
@@ -113,6 +123,13 @@ namespace Coffee.UIExtensions
             }
 
             return;
+
+            static bool IsSubEmittersEnabledWhileMainPrewarm(Component target)
+            {
+                using var _ = ListPools.ParticleSystem.Rent(out var psBuf);
+                target.GetComponentsInChildren(includeInactive: true, psBuf);
+                return psBuf.Any(static ps => ps.subEmitters.enabled || ps.main.prewarm);
+            }
 
             static bool IsValid3DShape(ParticleSystem ps, out string? detail)
             {
