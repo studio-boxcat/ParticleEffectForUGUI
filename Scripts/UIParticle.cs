@@ -16,7 +16,7 @@ namespace Coffee.UIExtensions
     /// </summary>
     [RequireComponent(typeof(ParticleSystem))]
     [RequireComponent(typeof(ParticleSystemRenderer))]
-    public partial class UIParticle : MaskableGraphic
+    public partial class UIParticle : Graphic
     {
         [SerializeField, Required, HideInInspector, ReadOnly]
         internal ParticleSystem Source = null!;
@@ -64,7 +64,7 @@ namespace Coffee.UIExtensions
             }
 
             V($"[UIParticle] Update() is called. Baking mesh: ps={ps.name}, alive={ps.IsAlive()}, playing={ps.isPlaying}, " +
-                $"particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
+              $"particleCount={ps.particleCount}, inheritedAlpha={cr.GetInheritedAlpha()}");
 
             // Get camera for baking mesh.
             var cam = CanvasUtils.ResolveWorldCamera(this)!;
@@ -109,12 +109,13 @@ namespace Coffee.UIExtensions
             {
                 var r = SourceRenderer;
                 var mat = r.trailMaterial;
+                var cr = canvasRenderer;
+
                 // depth is already set by base class. (UpdateMaterial() -> MaterialModifierUtils.ResolveMaterialForRendering() -> GetModifiedMaterial())
-                var d = m_StencilDepth!.Value;
-                if (d is not 0) mat = StencilMaterial.AddMaskable(r.trailMaterial, d); // make maskable.
+                var d = StencilMaterial.GetDepthFromRenderMaterial(cr.GetMaterial(0));
+                if (d is not 0) mat = StencilMaterial.AddMaskable(r.trailMaterial); // make maskable.
                 mat = MaterialModifierUtils.ResolveMaterialForRenderingExceptSelf(r, mat); // skip self, since it just for enabling stencil.
 
-                var cr = canvasRenderer;
                 cr.materialCount = 2;
                 cr.SetMaterial(mat, 1);
             }
